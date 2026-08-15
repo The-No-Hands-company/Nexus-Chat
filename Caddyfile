@@ -112,7 +112,12 @@
     # ── Logging ────────────────────────────────────────────────────────────────
     log {
         output stdout
-        format console
+        format filter {
+            fields {
+                request>headers delete
+            }
+            wrap console
+        }
         level INFO
     }
 }
@@ -123,4 +128,3 @@
 # admin.{$NEXUS_DOMAIN:localhost} {
 #     reverse_proxy localhost:8090
 # }
-
