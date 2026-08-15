@@ -207,8 +207,8 @@ pub async fn has_user_reacted(
     emoji: &str,
 ) -> Result<bool, sqlx::Error> {
     let row: (i64,) = sqlx::query_as(
-        "SELECT EXISTS(SELECT 1 FROM reactions WHERE CAST(message_id AS TEXT) = $1 \
-         AND CAST(user_id AS TEXT) = $2 AND emoji = $3) AS ex",
+        "SELECT CASE WHEN EXISTS(SELECT 1 FROM reactions WHERE CAST(message_id AS TEXT) = $1 \
+         AND CAST(user_id AS TEXT) = $2 AND emoji = $3) THEN 1 ELSE 0 END AS ex",
     )
     .bind(message_id.to_string())
     .bind(user_id.to_string())

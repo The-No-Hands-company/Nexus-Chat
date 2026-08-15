@@ -7,33 +7,56 @@ use nexus_db::repository::reactions;
 use sqlx::AnyPool;
 use uuid::Uuid;
 
-async fn scratch_pool() -> AnyPool {
-    let url = std::env::var("NEXUS_TEST_DATABASE_URL")
-        .expect("set NEXUS_TEST_DATABASE_URL to a scratch PostgreSQL database");
+#[test]
+fn scratch_database_url_requires_a_postgres_scheme() {
+    assert!(validate_scratch_postgres_url("postgres://localhost/nexus_scratch").is_ok());
+    assert!(validate_scratch_postgres_url("postgresql://localhost/nexus_test").is_ok());
+    assert!(validate_scratch_postgres_url("sqlite://nexus_scratch.db").is_err());
+    assert!(validate_scratch_postgres_url("mysql://localhost/nexus_scratch").is_err());
+}
+
+fn validate_scratch_postgres_url(url: &str) -> Result<(), Box<dyn std::error::Error>> {
+    let scheme = url
+        .split_once(':')
+        .map(|(scheme, _)| scheme.to_ascii_lowercase())
+        .unwrap_or_default();
+    if !matches!(scheme.as_str(), "postgres" | "postgresql") {
+        return Err("NEXUS_TEST_DATABASE_URL must use postgres:// or postgresql://".into());
+    }
+
     let database_name = url
         .split(['?', '#'])
         .next()
         .and_then(|without_query| without_query.rsplit('/').next())
         .unwrap_or_default()
         .to_ascii_lowercase();
-    assert!(
-        database_name.contains("test") || database_name.contains("scratch"),
-        "refusing to run: NEXUS_TEST_DATABASE_URL must name a test or scratch database"
-    );
+    if !database_name.contains("test") && !database_name.contains("scratch") {
+        return Err(
+            "NEXUS_TEST_DATABASE_URL must name a database containing test or scratch".into(),
+        );
+    }
+
+    Ok(())
+}
+
+async fn scratch_pool() -> Result<AnyPool, Box<dyn std::error::Error>> {
+    let url = std::env::var("NEXUS_TEST_DATABASE_URL")
+        .expect("set NEXUS_TEST_DATABASE_URL to a scratch PostgreSQL database");
+    validate_scratch_postgres_url(&url)?;
 
     sqlx::any::install_default_drivers();
     let pool = sqlx::any::AnyPoolOptions::new()
         .max_connections(2)
         .connect(&url)
         .await
-        .expect("scratch database connects");
+        .map_err(|error| format!("scratch database connects: {error}"))?;
 
     sqlx::migrate!("./migrations")
         .run(&pool)
         .await
-        .expect("migrations apply");
+        .map_err(|error| format!("migrations apply: {error}"))?;
 
-    pool
+    Ok(pool)
 }
 
 async fn insert_fixtures(
@@ -95,32 +118,48 @@ async fn remove_fixtures(
 #[ignore = "needs a scratch Postgres in NEXUS_TEST_DATABASE_URL"]
 async fn reaction_lifecycle_is_portable_through_any_pool() -> Result<(), Box<dyn std::error::Error>>
 {
-    let pool = scratch_pool().await;
+    let pool = scratch_pool().await?;
     let tag = Uuid::new_v4().simple().to_string();
     let user_id = Uuid::new_v4();
     let message_id = Uuid::new_v4();
 
     insert_fixtures(&pool, &tag, user_id, message_id).await?;
 
-    let result = async {
-        assert!(reactions::add_reaction(&pool, message_id, user_id, "👍").await?);
-        assert!(!reactions::add_reaction(&pool, message_id, user_id, "👍").await?);
-        assert_eq!(
-            reactions::get_reaction_counts(&pool, message_id).await?[0].count,
-            1
-        );
-        assert!(reactions::has_user_reacted(&pool, message_id, user_id, "👍").await?);
-        assert_eq!(
-            reactions::get_reactors(&pool, message_id, "👍", 10).await?,
-            vec![user_id]
-        );
-        assert!(reactions::remove_reaction(&pool, message_id, user_id, "👍").await?);
-        assert!(!reactions::has_user_reacted(&pool, message_id, user_id, "👍").await?);
-        Ok::<_, sqlx::Error>(())
+    let lifecycle_result = async {
+        if !reactions::add_reaction(&pool, message_id, user_id, "👍").await? {
+            return Err("first reaction insert was not applied".into());
+        }
+        if reactions::add_reaction(&pool, message_id, user_id, "👍").await? {
+            return Err("duplicate reaction insert was applied".into());
+        }
+        let counts = reactions::get_reaction_counts(&pool, message_id).await?;
+        if counts.first().map(|count| count.count) != Some(1) {
+            return Err(format!("expected one reaction count, got {counts:?}").into());
+        }
+        if !reactions::has_user_reacted(&pool, message_id, user_id, "👍").await? {
+            return Err("reaction was not reported after insertion".into());
+        }
+        if reactions::get_reactors(&pool, message_id, "👍", 10).await? != vec![user_id] {
+            return Err("unexpected reaction users".into());
+        }
+        if !reactions::remove_reaction(&pool, message_id, user_id, "👍").await? {
+            return Err("reaction removal was not applied".into());
+        }
+        if reactions::has_user_reacted(&pool, message_id, user_id, "👍").await? {
+            return Err("reaction remained after removal".into());
+        }
+        Ok::<_, Box<dyn std::error::Error>>(())
     }
     .await;
 
-    remove_fixtures(&pool, &tag, user_id, message_id).await?;
-    result?;
-    Ok(())
+    let cleanup_result = remove_fixtures(&pool, &tag, user_id, message_id).await;
+    match (lifecycle_result, cleanup_result) {
+        (Ok(()), Ok(())) => Ok(()),
+        (Err(lifecycle_error), Ok(())) => Err(lifecycle_error),
+        (Ok(()), Err(cleanup_error)) => Err(cleanup_error.into()),
+        (Err(lifecycle_error), Err(cleanup_error)) => Err(format!(
+            "reaction lifecycle failed: {lifecycle_error}; fixture cleanup also failed: {cleanup_error}"
+        )
+        .into()),
+    }
 }
