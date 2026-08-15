@@ -39,6 +39,30 @@ function orderMessages(messages: NxMessage[]): NxMessage[] {
   return [...messages].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
 }
 
+/**
+ * Settle an optimistic message against the server's version of it.
+ *
+ * The gateway broadcasts MESSAGE_CREATE to everyone including the sender, and
+ * that echo frequently arrives before the POST response. When it does, the
+ * real message is already in the list, so swapping the placeholder for `sent`
+ * leaves the same message twice — which is exactly why every message showed up
+ * in pairs. onMessageCreate dedupes by id, but it has no way to know the
+ * placeholder's temp id refers to the same message.
+ *
+ * Exported so the ordering race can be tested directly, without a DOM or a
+ * live socket.
+ */
+export function reconcileSent(
+  list: NxMessage[],
+  optimisticId: string,
+  sent: NxMessage,
+): NxMessage[] {
+  const alreadyArrived = list.some((m) => m.id === sent.id);
+  return alreadyArrived
+    ? list.filter((m) => m.id !== optimisticId)
+    : list.map((m) => (m.id === optimisticId ? sent : m));
+}
+
 function updateReactionState(
   messages: NxMessage[],
   messageId: string,
@@ -406,7 +430,7 @@ export const useStore = create<Store>()(
             body: JSON.stringify({ content, reference_message_id: replyTo ?? undefined }),
           });
           set((st) => {
-            const next = (st.messages[channelId] ?? []).map((m) => (m.id === optimistic.id ? sent : m));
+            const next = reconcileSent(st.messages[channelId] ?? [], optimistic.id, sent);
             return { messages: { ...st.messages, [channelId]: orderMessages(next) } };
           });
         } catch (e) {

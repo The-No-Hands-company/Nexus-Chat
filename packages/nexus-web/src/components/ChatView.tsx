@@ -35,14 +35,29 @@ export default function ChatView() {
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
-  // Load messages when channel changes
+  // Clear per-channel composer state whenever the channel changes.
   useEffect(() => {
-    if (!channelId) return;
-    loadMessages(channelId);
-    markRead(channelId);
     setReplyTo(null);
     setDraft("");
-  }, [channelId, loadMessages, markRead]);
+  }, [channelId]);
+
+  /**
+   * Load once we have both a channel and a session.
+   *
+   * `session` is a dependency, and that is the whole point. Since the SSO
+   * cutover nobody logs in through this app: the store starts with
+   * `session: null` on every boot and App.tsx fills it in from an async
+   * bootstrapSession(). This effect used to depend only on `channelId`, so on
+   * a full reload it ran first, hit `if (!s) return` inside loadMessages, and
+   * was never retried once the session arrived — the channel rendered empty
+   * and looked like the history had been lost. It had not; the fetch simply
+   * never happened.
+   */
+  useEffect(() => {
+    if (!channelId || !session) return;
+    loadMessages(channelId);
+    markRead(channelId);
+  }, [channelId, session, loadMessages, markRead]);
 
   // Scroll to bottom on new messages
   useEffect(() => {
