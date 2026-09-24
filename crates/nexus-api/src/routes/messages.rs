@@ -1161,28 +1161,14 @@ async fn remove_all_emoji_reactions(
     State(state): State<Arc<AppState>>,
     Path((channel_id, message_id, emoji)): Path<(Uuid, Uuid, String)>,
 ) -> NexusResult<Json<serde_json::Value>> {
-    // Only server owner / MANAGE_MESSAGES can bulk-remove reactions
-    let channel = channels::find_by_id(&state.db.pool, channel_id)
-        .await?
-        .ok_or(NexusError::NotFound {
-            resource: "Channel".into(),
-        })?;
-
-    if let Some(server_id) = channel.server_id {
-        let server = nexus_db::repository::servers::find_by_id(&state.db.pool, server_id)
-            .await?
-            .ok_or(NexusError::NotFound {
-                resource: "Server".into(),
-            })?;
-        if server.owner_id != auth.user_id {
-            return Err(NexusError::MissingPermission {
-                permission: "MANAGE_MESSAGES".into(),
-            });
-        }
-    }
-
-    let count =
-        reactions::remove_all_reactions_for_emoji(&state.db.pool, message_id, &emoji).await?;
+    let count = remove_all_emoji_reactions_authorized(
+        &state.db.pool,
+        auth.user_id,
+        channel_id,
+        message_id,
+        &emoji,
+    )
+    .await?;
     Ok(Json(serde_json::json!({ "removed": count })))
 }
 
@@ -1192,27 +1178,103 @@ async fn remove_all_reactions(
     State(state): State<Arc<AppState>>,
     Path((channel_id, message_id)): Path<(Uuid, Uuid)>,
 ) -> NexusResult<Json<serde_json::Value>> {
-    let channel = channels::find_by_id(&state.db.pool, channel_id)
-        .await?
-        .ok_or(NexusError::NotFound {
-            resource: "Channel".into(),
-        })?;
+    let count = remove_all_reactions_authorized(
+        &state.db.pool,
+        auth.user_id,
+        channel_id,
+        message_id,
+    )
+    .await?;
+    Ok(Json(serde_json::json!({ "removed": count })))
+}
 
-    if let Some(server_id) = channel.server_id {
-        let server = nexus_db::repository::servers::find_by_id(&state.db.pool, server_id)
-            .await?
+async fn authorize_bulk_reaction_target(
+    pool: &sqlx::AnyPool,
+    actor_id: Uuid,
+    requested_channel_id: Uuid,
+    message_id: Uuid,
+) -> NexusResult<()> {
+    let connection = pool.acquire().await?;
+    let (message_parameter, actor_parameter) = match connection.backend_name() {
+        "PostgreSQL" => ("$1::uuid", "$2::uuid"),
+        "SQLite" => ("$1", "$2"),
+        backend => {
+            return Err(sqlx::Error::Configuration(
+                format!("unsupported message database backend: {backend}").into(),
+            )
+            .into());
+        }
+    };
+    drop(connection);
+
+    let query = format!(
+        "SELECT CAST(m.channel_id AS TEXT), CAST(c.server_id AS TEXT), \
+                CAST(s.owner_id AS TEXT), CAST(dp.user_id AS TEXT) \
+         FROM messages m \
+         INNER JOIN channels c ON c.id = m.channel_id \
+         LEFT JOIN servers s ON s.id = c.server_id \
+         LEFT JOIN dm_participants dp \
+           ON dp.channel_id = m.channel_id AND dp.user_id = {actor_parameter} \
+         WHERE m.id = {message_parameter}"
+    );
+    let target: Option<(String, Option<String>, Option<String>, Option<String>)> =
+        sqlx::query_as(&query)
+            .bind(message_id.to_string())
+            .bind(actor_id.to_string())
+            .fetch_optional(pool)
+            .await?;
+    let (actual_channel_id, server_id, server_owner_id, dm_participant_id) =
+        target.ok_or(NexusError::NotFound {
+            resource: "Message".into(),
+        })?;
+    let actual_channel_id = actual_channel_id.parse::<Uuid>().map_err(|error| {
+        NexusError::Internal(anyhow::anyhow!("invalid target channel UUID: {error}"))
+    })?;
+    if actual_channel_id != requested_channel_id {
+        return Err(NexusError::NotFound {
+            resource: "Message".into(),
+        });
+    }
+
+    if server_id.is_some() {
+        let owner_id = server_owner_id
             .ok_or(NexusError::NotFound {
                 resource: "Server".into(),
+            })?
+            .parse::<Uuid>()
+            .map_err(|error| {
+                NexusError::Internal(anyhow::anyhow!("invalid target server owner UUID: {error}"))
             })?;
-        if server.owner_id != auth.user_id {
+        if owner_id != actor_id {
             return Err(NexusError::MissingPermission {
                 permission: "MANAGE_MESSAGES".into(),
             });
         }
+    } else if dm_participant_id.is_none() {
+        return Err(NexusError::Forbidden);
     }
+    Ok(())
+}
 
-    let count = reactions::remove_all_reactions(&state.db.pool, message_id).await?;
-    Ok(Json(serde_json::json!({ "removed": count })))
+async fn remove_all_emoji_reactions_authorized(
+    pool: &sqlx::AnyPool,
+    actor_id: Uuid,
+    requested_channel_id: Uuid,
+    message_id: Uuid,
+    emoji: &str,
+) -> NexusResult<u64> {
+    authorize_bulk_reaction_target(pool, actor_id, requested_channel_id, message_id).await?;
+    Ok(reactions::remove_all_reactions_for_emoji(pool, message_id, emoji).await?)
+}
+
+async fn remove_all_reactions_authorized(
+    pool: &sqlx::AnyPool,
+    actor_id: Uuid,
+    requested_channel_id: Uuid,
+    message_id: Uuid,
+) -> NexusResult<u64> {
+    authorize_bulk_reaction_target(pool, actor_id, requested_channel_id, message_id).await?;
+    Ok(reactions::remove_all_reactions(pool, message_id).await?)
 }
 
 // ============================================================================
@@ -2192,6 +2254,162 @@ async fn add_channel_follower(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    struct CrossChannelReactionFixture {
+        pool: sqlx::AnyPool,
+        actor_id: Uuid,
+        authorized_url_channel_id: Uuid,
+        target_message_id: Uuid,
+    }
+
+    async fn cross_channel_reaction_fixture() -> CrossChannelReactionFixture {
+        sqlx::any::install_default_drivers();
+        let pool = sqlx::any::AnyPoolOptions::new()
+            .max_connections(1)
+            .connect("sqlite::memory:")
+            .await
+            .expect("connect reaction route test database");
+        sqlx::query("PRAGMA foreign_keys = ON")
+            .execute(&pool)
+            .await
+            .expect("enable test foreign keys");
+        sqlx::migrate!("../nexus-db/migrations-lite")
+            .run(&pool)
+            .await
+            .expect("migrate reaction route test database");
+
+        let actor_id = Uuid::new_v4();
+        let target_owner_id = Uuid::new_v4();
+        let authorized_server_id = Uuid::new_v4();
+        let target_server_id = Uuid::new_v4();
+        let authorized_url_channel_id = Uuid::new_v4();
+        let actual_target_channel_id = Uuid::new_v4();
+        let target_message_id = Uuid::new_v4();
+
+        for (id, username) in [
+            (actor_id, "reaction-attacker"),
+            (target_owner_id, "reaction-owner"),
+        ] {
+            sqlx::query("INSERT INTO users (id, username, password_hash) VALUES ($1, $2, 'test')")
+                .bind(id.to_string())
+                .bind(username)
+                .execute(&pool)
+                .await
+                .expect("insert reaction route user");
+        }
+        for (id, name, owner_id) in [
+            (authorized_server_id, "authorized-server", actor_id),
+            (target_server_id, "target-server", target_owner_id),
+        ] {
+            sqlx::query("INSERT INTO servers (id, name, owner_id) VALUES ($1, $2, $3)")
+                .bind(id.to_string())
+                .bind(name)
+                .bind(owner_id.to_string())
+                .execute(&pool)
+                .await
+                .expect("insert reaction route server");
+        }
+        for (id, server_id, name) in [
+            (
+                authorized_url_channel_id,
+                authorized_server_id,
+                "authorized-channel",
+            ),
+            (actual_target_channel_id, target_server_id, "target-channel"),
+        ] {
+            sqlx::query(
+                "INSERT INTO channels (id, server_id, channel_type, name) VALUES ($1, $2, 'text', $3)",
+            )
+            .bind(id.to_string())
+            .bind(server_id.to_string())
+            .bind(name)
+            .execute(&pool)
+            .await
+            .expect("insert reaction route channel");
+        }
+        sqlx::query(
+            "INSERT INTO messages (id, channel_id, author_id, content) VALUES ($1, $2, $3, 'target')",
+        )
+        .bind(target_message_id.to_string())
+        .bind(actual_target_channel_id.to_string())
+        .bind(target_owner_id.to_string())
+        .execute(&pool)
+        .await
+        .expect("insert target message");
+        for emoji in ["red", "blue"] {
+            sqlx::query("INSERT INTO reactions (message_id, user_id, emoji) VALUES ($1, $2, $3)")
+                .bind(target_message_id.to_string())
+                .bind(target_owner_id.to_string())
+                .bind(emoji)
+                .execute(&pool)
+                .await
+                .expect("insert target reaction");
+        }
+
+        CrossChannelReactionFixture {
+            pool,
+            actor_id,
+            authorized_url_channel_id,
+            target_message_id,
+        }
+    }
+
+    async fn reaction_count(pool: &sqlx::AnyPool, message_id: Uuid) -> i64 {
+        sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM reactions WHERE message_id = $1")
+            .bind(message_id.to_string())
+            .fetch_one(pool)
+            .await
+            .expect("count target reactions")
+    }
+
+    #[tokio::test]
+    async fn remove_all_emoji_route_rejects_cross_channel_message() {
+        let fixture = cross_channel_reaction_fixture().await;
+
+        let error = remove_all_emoji_reactions_authorized(
+            &fixture.pool,
+            fixture.actor_id,
+            fixture.authorized_url_channel_id,
+            fixture.target_message_id,
+            "red",
+        )
+        .await
+        .expect_err("attacker-selected channel must not authorize another channel's message");
+
+        assert_eq!(
+            error.status_code(),
+            axum::http::StatusCode::NOT_FOUND,
+            "{error:?}"
+        );
+        assert_eq!(
+            reaction_count(&fixture.pool, fixture.target_message_id).await,
+            2
+        );
+    }
+
+    #[tokio::test]
+    async fn remove_all_reactions_route_rejects_cross_channel_message() {
+        let fixture = cross_channel_reaction_fixture().await;
+
+        let error = remove_all_reactions_authorized(
+            &fixture.pool,
+            fixture.actor_id,
+            fixture.authorized_url_channel_id,
+            fixture.target_message_id,
+        )
+        .await
+        .expect_err("attacker-selected channel must not authorize another channel's message");
+
+        assert_eq!(
+            error.status_code(),
+            axum::http::StatusCode::NOT_FOUND,
+            "{error:?}"
+        );
+        assert_eq!(
+            reaction_count(&fixture.pool, fixture.target_message_id).await,
+            2
+        );
+    }
 
     // ── parse_mentions ────────────────────────────────────────────────────────
 
