@@ -21,7 +21,7 @@ use uuid::Uuid;
 
 use crate::{
     AppState,
-    middleware::{AuthContext, check_rate_limit_with_fallback, extract_client_ip},
+    middleware::{AuthContext, check_rate_limit_with_fallback, extract_client_tag},
 };
 
 pub fn router() -> Router<Arc<AppState>> {
@@ -70,7 +70,7 @@ async fn revoke_session(
     Path(session_id_str): Path<String>,
 ) -> NexusResult<StatusCode> {
     // Rate limiting: 10 session revocations per user per 5 minutes
-    let ip = extract_client_ip(&headers);
+    let tag = extract_client_tag(&headers);
     check_rate_limit_with_fallback(
         state.db.redis.as_ref(),
         format!("rl:session_revoke:user:{}", auth_ctx.user_id),
@@ -80,7 +80,7 @@ async fn revoke_session(
     .await?;
     check_rate_limit_with_fallback(
         state.db.redis.as_ref(),
-        format!("rl:session_revoke:ip:{ip}"),
+        format!("rl:session_revoke:tag:{tag}"),
         20,
         300,
     )
@@ -113,7 +113,7 @@ async fn revoke_all_sessions(
     headers: HeaderMap,
 ) -> NexusResult<Json<RevokedCountResponse>> {
     // Rate limiting: 5 bulk session revocations per user per hour (high impact operation)
-    let ip = extract_client_ip(&headers);
+    let tag = extract_client_tag(&headers);
     check_rate_limit_with_fallback(
         state.db.redis.as_ref(),
         format!("rl:session_revoke_all:user:{}", auth_ctx.user_id),
@@ -123,7 +123,7 @@ async fn revoke_all_sessions(
     .await?;
     check_rate_limit_with_fallback(
         state.db.redis.as_ref(),
-        format!("rl:session_revoke_all:ip:{ip}"),
+        format!("rl:session_revoke_all:tag:{tag}"),
         10,
         3600,
     )

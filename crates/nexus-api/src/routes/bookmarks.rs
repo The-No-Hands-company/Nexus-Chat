@@ -25,7 +25,7 @@ use uuid::Uuid;
 
 use crate::{
     AppState,
-    middleware::{AuthContext, check_rate_limit_with_fallback, extract_client_ip},
+    middleware::{AuthContext, check_rate_limit_with_fallback, extract_client_tag},
 };
 
 // ============================================================
@@ -146,7 +146,7 @@ async fn add_bookmark(
     Json(body): Json<AddBookmarkRequest>,
 ) -> NexusResult<Json<Bookmark>> {
     // ── Rate limiting: 20 bookmarks per user per minute ────────────
-    let ip = extract_client_ip(&headers);
+    let tag = extract_client_tag(&headers);
     check_rate_limit_with_fallback(
         state.db.redis.as_ref(),
         format!("rl:bookmark:add:{}", ctx.user_id),
@@ -156,7 +156,7 @@ async fn add_bookmark(
     .await?;
     check_rate_limit_with_fallback(
         state.db.redis.as_ref(),
-        format!("rl:bookmark:add:ip:{ip}"),
+        format!("rl:bookmark:add:tag:{tag}"),
         40,
         60,
     )

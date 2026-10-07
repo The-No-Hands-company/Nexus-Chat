@@ -267,7 +267,7 @@ impl AuthContext {
 ///
 /// # Arguments
 /// * `redis`       – Redis connection manager borrowed from `db.redis`
-/// * `key`         – Unique key (e.g. `"rl:login:ip:1.2.3.4"`)
+/// * `key`         – Unique key (e.g. `"rl:login:tag:tagAAAA"`)
 /// * `limit`       – Max calls allowed in the window
 /// * `window_secs` – Window length in seconds
 ///
@@ -397,29 +397,21 @@ async fn check_rate_limit_local(key: &str, limit: u64, window_secs: u64) -> Resu
     Ok(())
 }
 
-/// Extract the best-effort client IP from request headers.
+/// Opaque per-client tag set by the ecosystem proxy (`x-nexus-client-tag`).
 ///
-/// Checks (in order):
-///   1. `X-Forwarded-For` first value — set by nginx / Fly.io / Cloudflare
-///   2. `X-Real-IP` — set by nginx in single-proxy mode
-///   3. Falls back to `"unknown"` (rate-limiting degrades gracefully)
-///
-/// **Security note:** these headers can be spoofed when Nexus is directly
-/// internet-facing.  For production, run behind a trusted reverse proxy
-/// that strips and re-sets `X-Forwarded-For`.
-pub fn extract_client_ip(headers: &axum::http::HeaderMap) -> String {
-    if let Some(xff) = headers.get("x-forwarded-for").and_then(|v| v.to_str().ok()) {
-        // XFF may be "client, proxy1, proxy2" — take the leftmost value.
-        if let Some(ip) = xff.split(',').next().map(str::trim)
-            && !ip.is_empty() {
-                return ip.to_owned();
-            }
-    }
-    if let Some(xri) = headers.get("x-real-ip").and_then(|v| v.to_str().ok())
-        && !xri.is_empty() {
-            return xri.to_owned();
-        }
-    "unknown".to_owned()
+/// The proxy strips every address header and derives this tag from the
+/// connecting address, so rate limits can tell clients apart without Chat ever
+/// seeing, keying on or storing an IP. Anything else (`X-Forwarded-For`,
+/// `X-Real-IP`) is deliberately ignored: it would be client-controlled, and it
+/// would re-introduce addresses. Absent tag degrades to `"unknown"`.
+pub fn extract_client_tag(headers: &axum::http::HeaderMap) -> String {
+    headers
+        .get("x-nexus-client-tag")
+        .and_then(|v| v.to_str().ok())
+        .map(str::trim)
+        .filter(|t| !t.is_empty())
+        .unwrap_or("unknown")
+        .to_owned()
 }
 
 // ── Security headers ──────────────────────────────────────────────────────────
@@ -549,50 +541,16 @@ mod tests {
         assert_ne!(sha256_hex(raw), sha256_hex(&prefixed));
     }
 
-    // ── extract_client_ip ─────────────────────────────────────────────────────
+    // ── extract_client_tag ────────────────────────────────────────────────────
 
     #[test]
-    fn extract_client_ip_returns_unknown_with_no_headers() {
-        let headers = HeaderMap::new();
-        assert_eq!(extract_client_ip(&headers), "unknown");
-    }
-
-    #[test]
-    fn extract_client_ip_reads_x_forwarded_for_first_value() {
-        let mut headers = HeaderMap::new();
-        headers.insert(
-            "x-forwarded-for",
-            "203.0.113.1, 10.0.0.1, 172.16.0.1".parse().unwrap(),
-        );
-        // Must return the leftmost (original client) address
-        assert_eq!(extract_client_ip(&headers), "203.0.113.1");
-    }
-
-    #[test]
-    fn extract_client_ip_reads_x_real_ip_as_fallback() {
-        let mut headers = HeaderMap::new();
-        headers.insert("x-real-ip", "198.51.100.42".parse().unwrap());
-        assert_eq!(extract_client_ip(&headers), "198.51.100.42");
-    }
-
-    #[test]
-    fn extract_client_ip_prefers_xff_over_x_real_ip() {
-        let mut headers = HeaderMap::new();
-        headers.insert("x-forwarded-for", "203.0.113.1".parse().unwrap());
-        headers.insert("x-real-ip", "198.51.100.42".parse().unwrap());
-        // X-Forwarded-For takes precedence
-        assert_eq!(extract_client_ip(&headers), "203.0.113.1");
-    }
-
-    #[test]
-    fn extract_client_ip_trims_whitespace_from_xff() {
-        let mut headers = HeaderMap::new();
-        // Some proxies add extra spaces
-        headers.insert(
-            "x-forwarded-for",
-            "  203.0.113.5  , 10.0.0.1".parse().unwrap(),
-        );
-        assert_eq!(extract_client_ip(&headers), "203.0.113.5");
+    fn client_tag_comes_from_the_proxy_header_never_from_address_headers() {
+        let mut h = axum::http::HeaderMap::new();
+        h.insert("x-forwarded-for", "203.0.113.30".parse().unwrap());
+        h.insert("x-real-ip", "203.0.113.30".parse().unwrap());
+        assert_eq!(extract_client_tag(&h), "unknown");
+        h.insert("x-nexus-client-tag", "tagCCCCCCCCCCCCCCCCCCC".parse().unwrap());
+        assert_eq!(extract_client_tag(&h), "tagCCCCCCCCCCCCCCCCCCC");
     }
 
     // ── check_rate_limit_local ────────────────────────────────────────────────

@@ -74,9 +74,9 @@ async fn metrics_handler(
         }
     } else {
         // No token configured: restrict to loopback only.
-        let ip = crate::middleware::extract_client_ip(&headers);
-        let is_loopback =
-            ip == "unknown" || ip == "127.0.0.1" || ip == "::1" || ip.starts_with("::ffff:127.");
+        // The ecosystem proxy always stamps a client tag on forwarded traffic;
+        // only a direct (tagless) local scrape counts as loopback.
+        let is_loopback = crate::middleware::extract_client_tag(&headers) == "unknown";
         if !is_loopback {
             return Err((
                 StatusCode::FORBIDDEN,

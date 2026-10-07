@@ -46,8 +46,6 @@ struct SubscribeRequest {
     endpoint: String,
     /// Browser-generated keys (from PushSubscription.toJSON()).
     keys: PushKeys,
-    /// Optional UA string ("Chrome 120 on Android").
-    user_agent: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -115,7 +113,6 @@ async fn subscribe(
         &body.endpoint,
         &body.keys.p256dh,
         &body.keys.auth,
-        body.user_agent.as_deref(),
     )
     .await
     .map_err(|e| NexusError::Internal(e.into()))?;

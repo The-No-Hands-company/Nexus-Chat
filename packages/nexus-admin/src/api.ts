@@ -95,7 +95,6 @@ export interface InstanceAuditEntry {
   target_id: string | null;
   changes: Record<string, unknown>;
   reason: string | null;
-  ip_address: string | null;
   created_at: string;
 }
 

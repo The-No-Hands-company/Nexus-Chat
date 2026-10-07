@@ -10,7 +10,6 @@ pub struct PushSubscription {
     pub endpoint: String,
     pub p256dh: String,
     pub auth: String,
-    pub user_agent: Option<String>,
     pub created_at: DateTime<Utc>,
     pub last_used_at: Option<DateTime<Utc>>,
 }
@@ -22,18 +21,16 @@ pub async fn upsert(
     endpoint: &str,
     p256dh: &str,
     auth: &str,
-    user_agent: Option<&str>,
 ) -> Result<PushSubscription, sqlx::Error> {
     // Use INSERT … ON CONFLICT to handle re-subscription with the same endpoint.
     let row = sqlx::query_as::<_, PushSubscriptionRow>(
-        "INSERT INTO push_subscriptions (id, user_id, endpoint, p256dh, auth, user_agent) \
-         VALUES ($1::uuid, $2::uuid, $3, $4, $5, $6) \
+        "INSERT INTO push_subscriptions (id, user_id, endpoint, p256dh, auth) \
+         VALUES ($1::uuid, $2::uuid, $3, $4, $5) \
          ON CONFLICT (endpoint) DO UPDATE SET \
            user_id    = EXCLUDED.user_id, \
            p256dh     = EXCLUDED.p256dh, \
-           auth       = EXCLUDED.auth, \
-           user_agent = EXCLUDED.user_agent \
-         RETURNING id::text, user_id::text, endpoint, p256dh, auth, user_agent, \
+           auth       = EXCLUDED.auth \
+         RETURNING id::text, user_id::text, endpoint, p256dh, auth, \
                    created_at::text, last_used_at::text",
     )
     .bind(Uuid::new_v4().to_string())
@@ -41,7 +38,6 @@ pub async fn upsert(
     .bind(endpoint)
     .bind(p256dh)
     .bind(auth)
-    .bind(user_agent)
     .fetch_one(pool)
     .await?;
 
@@ -82,7 +78,7 @@ pub async fn list_for_user(
     user_id: Uuid,
 ) -> Result<Vec<PushSubscription>, sqlx::Error> {
     let rows = sqlx::query_as::<_, PushSubscriptionRow>(
-        "SELECT id::text, user_id::text, endpoint, p256dh, auth, user_agent, \
+        "SELECT id::text, user_id::text, endpoint, p256dh, auth, \
                 created_at::text, last_used_at::text \
          FROM push_subscriptions \
          WHERE user_id = $1::uuid \
@@ -129,7 +125,6 @@ struct PushSubscriptionRow {
     endpoint: String,
     p256dh: String,
     auth: String,
-    user_agent: Option<String>,
     created_at: String,
     last_used_at: Option<String>,
 }
@@ -151,7 +146,6 @@ impl From<PushSubscriptionRow> for PushSubscription {
             endpoint: r.endpoint,
             p256dh: r.p256dh,
             auth: r.auth,
-            user_agent: r.user_agent,
             created_at: parse_dt(&r.created_at),
             last_used_at: r.last_used_at.as_deref().map(parse_dt),
         }

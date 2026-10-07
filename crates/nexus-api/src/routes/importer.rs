@@ -23,7 +23,7 @@ use uuid::Uuid;
 
 use crate::{
     AppState,
-    middleware::{AuthContext, check_rate_limit_with_fallback, extract_client_ip},
+    middleware::{AuthContext, check_rate_limit_with_fallback, extract_client_tag},
 };
 
 // ── Router ────────────────────────────────────────────────────────────────────
@@ -114,10 +114,10 @@ async fn create_import(
         });
     }
 
-    let ip = extract_client_ip(&headers);
+    let tag = extract_client_tag(&headers);
     check_rate_limit_with_fallback(
         state.db.redis.as_ref(),
-        format!("rl:import_create:ip:{ip}:server:{server_id}"),
+        format!("rl:import_create:tag:{tag}:server:{server_id}"),
         5,
         3600,
     )
@@ -208,10 +208,10 @@ async fn create_bulk_invite(
         });
     }
 
-    let ip = extract_client_ip(&headers);
+    let tag = extract_client_tag(&headers);
     check_rate_limit_with_fallback(
         state.db.redis.as_ref(),
-        format!("rl:bulk_invite:ip:{ip}:server:{server_id}"),
+        format!("rl:bulk_invite:tag:{tag}:server:{server_id}"),
         10,
         3600,
     )

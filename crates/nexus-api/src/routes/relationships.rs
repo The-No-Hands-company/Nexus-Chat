@@ -40,7 +40,7 @@ use uuid::Uuid;
 
 use crate::{
     AppState,
-    middleware::{AuthContext, check_rate_limit_with_fallback, extract_client_ip},
+    middleware::{AuthContext, check_rate_limit_with_fallback, extract_client_tag},
 };
 
 pub fn router() -> Router<Arc<AppState>> {
@@ -194,7 +194,7 @@ async fn send_friend_request(
     Json(body): Json<SendFriendRequest>,
 ) -> NexusResult<Json<RelationshipResponse>> {
     // Rate limiting: 20 friend requests per hour per user, 40 per IP
-    let ip = extract_client_ip(&headers);
+    let tag = extract_client_tag(&headers);
     check_rate_limit_with_fallback(
         state.db.redis.as_ref(),
         format!("rl:friendreq:user:{}", auth.user_id),
@@ -204,7 +204,7 @@ async fn send_friend_request(
     .await?;
     check_rate_limit_with_fallback(
         state.db.redis.as_ref(),
-        format!("rl:friendreq:ip:{ip}"),
+        format!("rl:friendreq:tag:{tag}"),
         40,
         3600,
     )
@@ -534,7 +534,7 @@ async fn search_users(
     Query(params): Query<SearchQuery>,
 ) -> NexusResult<Json<Vec<UserBrief>>> {
     // Rate limiting: 60 searches per minute per user
-    let ip = extract_client_ip(&headers);
+    let tag = extract_client_tag(&headers);
     check_rate_limit_with_fallback(
         state.db.redis.as_ref(),
         format!("rl:search:user:{}", auth.user_id),
@@ -544,7 +544,7 @@ async fn search_users(
     .await?;
     check_rate_limit_with_fallback(
         state.db.redis.as_ref(),
-        format!("rl:search:ip:{ip}"),
+        format!("rl:search:tag:{tag}"),
         120,
         60,
     )

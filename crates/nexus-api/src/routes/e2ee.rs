@@ -26,7 +26,7 @@ use uuid::Uuid;
 
 use crate::{
     AppState,
-    middleware::{AuthContext, check_rate_limit_with_fallback, extract_client_ip},
+    middleware::{AuthContext, check_rate_limit_with_fallback, extract_client_tag},
 };
 use nexus_common::gateway_event::GatewayEvent;
 
@@ -85,7 +85,7 @@ async fn send_encrypted_message(
     Json(body): Json<SendEncryptedMessageRequest>,
 ) -> NexusResult<Json<EncryptedMessage>> {
     // ── Rate limiting: 20 encrypted messages per user per minute ───────────
-    let ip = extract_client_ip(&headers);
+    let tag = extract_client_tag(&headers);
     check_rate_limit_with_fallback(
         state.db.redis.as_ref(),
         format!("rl:e2ee:user:{}", auth.user_id),
@@ -95,7 +95,7 @@ async fn send_encrypted_message(
     .await?;
     check_rate_limit_with_fallback(
         state.db.redis.as_ref(),
-        format!("rl:e2ee:ip:{ip}"),
+        format!("rl:e2ee:tag:{tag}"),
         50, // 50 per IP
         60,
     )

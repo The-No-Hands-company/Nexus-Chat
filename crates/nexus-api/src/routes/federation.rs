@@ -36,7 +36,7 @@ use tracing::{debug, info, warn};
 
 use crate::{
     AppState,
-    middleware::{check_rate_limit_with_fallback, extract_client_ip},
+    middleware::{check_rate_limit_with_fallback, extract_client_tag},
 };
 
 // ─── Router ───────────────────────────────────────────────────────────────────
@@ -184,10 +184,10 @@ async fn receive_transaction(
 ) -> impl IntoResponse {
     // ── 0. Rate limiting (early, before expensive signature verification) ────
     // Limit transaction ingestion to 100/min per IP and 200/min per origin
-    let ip = extract_client_ip(&headers);
+    let tag = extract_client_tag(&headers);
     if let Err(e) = check_rate_limit_with_fallback(
         state.db.redis.as_ref(),
-        format!("rl:fed:txn:ip:{ip}"),
+        format!("rl:fed:txn:tag:{tag}"),
         100,
         60,
     )

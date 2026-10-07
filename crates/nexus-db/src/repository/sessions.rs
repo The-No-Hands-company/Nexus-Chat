@@ -13,8 +13,6 @@ use uuid::Uuid;
 pub struct SessionRow {
     pub id: String,
     pub device_info: Option<String>,
-    pub user_agent: Option<String>,
-    pub ip_address: Option<String>,
     pub created_at: DateTime<Utc>,
     pub last_seen_at: DateTime<Utc>,
 }
@@ -27,14 +25,12 @@ pub async fn create_session(
     user_id: Uuid,
     // The raw refresh token is NOT stored — only its JTI (session_id) is used for lookups.
     device_info: Option<&str>,
-    user_agent: Option<&str>,
-    ip_address: Option<&str>,
     expires_at: DateTime<Utc>,
 ) -> Result<(), sqlx::Error> {
     sqlx::query(
         "INSERT INTO refresh_tokens \
-         (id, user_id, token_hash, device_info, user_agent, ip_address, expires_at, last_seen_at, created_at) \
-         VALUES ($1::uuid, $2::uuid, $3, $4, $5, $6::inet, $7::timestamptz, NOW(), NOW())",
+         (id, user_id, token_hash, device_info, expires_at, last_seen_at, created_at) \
+         VALUES ($1::uuid, $2::uuid, $3, $4, $5::timestamptz, NOW(), NOW())",
     )
     .bind(session_id.to_string())
     .bind(user_id.to_string())
@@ -42,8 +38,6 @@ pub async fn create_session(
     // Store the session UUID itself to satisfy the NOT NULL + UNIQUE constraint.
     .bind(session_id.to_string())
     .bind(device_info)
-    .bind(user_agent)
-    .bind(ip_address)
     .bind(expires_at.to_rfc3339())
     .execute(pool)
     .await?;
@@ -55,15 +49,8 @@ pub async fn list_sessions(
     pool: &sqlx::AnyPool,
     user_id: Uuid,
 ) -> Result<Vec<SessionRow>, sqlx::Error> {
-    let rows: Vec<(
-        String,
-        Option<String>,
-        Option<String>,
-        Option<String>,
-        String,
-        String,
-    )> = sqlx::query_as(
-        "SELECT id::text, device_info, user_agent, ip_address::text, \
+    let rows: Vec<(String, Option<String>, String, String)> = sqlx::query_as(
+        "SELECT id::text, device_info, \
                     to_char(created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS.US\"Z\"'), \
                     to_char(last_seen_at AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS.US\"Z\"') \
              FROM refresh_tokens \
@@ -76,7 +63,7 @@ pub async fn list_sessions(
 
     rows.into_iter()
         .map(
-            |(id, device_info, user_agent, ip_address, created_str, last_seen_str)| {
+            |(id, device_info, created_str, last_seen_str)| {
                 let created_at = created_str
                     .parse::<DateTime<Utc>>()
                     .unwrap_or(DateTime::<Utc>::MIN_UTC);
@@ -86,8 +73,6 @@ pub async fn list_sessions(
                 Ok(SessionRow {
                     id,
                     device_info,
-                    user_agent,
-                    ip_address,
                     created_at,
                     last_seen_at,
                 })

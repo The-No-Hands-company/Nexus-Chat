@@ -19,7 +19,7 @@ use uuid::Uuid;
 
 use crate::{
     AppState,
-    middleware::{AuthContext, check_rate_limit_with_fallback, extract_client_ip},
+    middleware::{AuthContext, check_rate_limit_with_fallback, extract_client_tag},
 };
 
 /// Verify that `user_id` holds `required` permission in a server.
@@ -113,7 +113,7 @@ async fn create_channel(
     validate_request(&body)?;
 
     // ── Rate limiting: 10 channel creates per user per minute ────────────
-    let ip = extract_client_ip(&headers);
+    let tag = extract_client_tag(&headers);
     check_rate_limit_with_fallback(
         state.db.redis.as_ref(),
         format!("rl:channel:create:{}", auth.user_id),
@@ -123,7 +123,7 @@ async fn create_channel(
     .await?;
     check_rate_limit_with_fallback(
         state.db.redis.as_ref(),
-        format!("rl:channel:create:ip:{ip}"),
+        format!("rl:channel:create:tag:{tag}"),
         20,
         60,
     )
@@ -212,7 +212,7 @@ async fn update_channel(
     validate_request(&body)?;
 
     // ── Rate limiting: 5 channel updates per user per minute ────────────
-    let ip = extract_client_ip(&headers);
+    let tag = extract_client_tag(&headers);
     check_rate_limit_with_fallback(
         state.db.redis.as_ref(),
         format!("rl:channel:update:{}", auth.user_id),
@@ -222,7 +222,7 @@ async fn update_channel(
     .await?;
     check_rate_limit_with_fallback(
         state.db.redis.as_ref(),
-        format!("rl:channel:update:ip:{ip}"),
+        format!("rl:channel:update:tag:{tag}"),
         10,
         60,
     )
@@ -289,7 +289,7 @@ async fn delete_channel(
     Path(channel_id): Path<Uuid>,
 ) -> NexusResult<Json<serde_json::Value>> {
     // ── Rate limiting: 5 channel deletes per user per minute ────────────
-    let ip = extract_client_ip(&headers);
+    let tag = extract_client_tag(&headers);
     check_rate_limit_with_fallback(
         state.db.redis.as_ref(),
         format!("rl:channel:delete:{}", auth.user_id),
@@ -299,7 +299,7 @@ async fn delete_channel(
     .await?;
     check_rate_limit_with_fallback(
         state.db.redis.as_ref(),
-        format!("rl:channel:delete:ip:{ip}"),
+        format!("rl:channel:delete:tag:{tag}"),
         10,
         60,
     )

@@ -18,7 +18,7 @@ use std::sync::Arc;
 
 use crate::{
     AppState,
-    middleware::{AuthContext, check_rate_limit_with_fallback, extract_client_ip},
+    middleware::{AuthContext, check_rate_limit_with_fallback, extract_client_tag},
 };
 
 pub fn router() -> Router<Arc<AppState>> {
@@ -56,10 +56,10 @@ async fn verify_email(
     headers: HeaderMap,
     Query(params): Query<VerifyQuery>,
 ) -> NexusResult<Json<VerifyResponse>> {
-    let ip = extract_client_ip(&headers);
+    let tag = extract_client_tag(&headers);
     check_rate_limit_with_fallback(
         state.db.redis.as_ref(),
-        format!("rl:verify_email:ip:{ip}"),
+        format!("rl:verify_email:tag:{tag}"),
         30,
         300,
     )
@@ -99,10 +99,10 @@ async fn resend_verification(
     State(state): State<Arc<AppState>>,
     headers: HeaderMap,
 ) -> NexusResult<Json<ResendResponse>> {
-    let ip = extract_client_ip(&headers);
+    let tag = extract_client_tag(&headers);
     check_rate_limit_with_fallback(
         state.db.redis.as_ref(),
-        format!("rl:resend_verification:ip:{ip}"),
+        format!("rl:resend_verification:tag:{tag}"),
         10,
         300,
     )

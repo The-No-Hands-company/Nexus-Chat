@@ -47,7 +47,7 @@ use uuid::Uuid;
 
 use crate::{
     AppState,
-    middleware::{AuthContext, check_rate_limit_with_fallback, extract_client_ip},
+    middleware::{AuthContext, check_rate_limit_with_fallback, extract_client_tag},
 };
 use sqlx::Row;
 
@@ -246,7 +246,7 @@ async fn update_identity(
     require_instance_admin(&state.db.pool, auth.user_id).await?;
 
     // Rate limit identity updates
-    let _ip = extract_client_ip(&headers);
+    let _ip = extract_client_tag(&headers);
     check_rate_limit_with_fallback(
         state.db.redis.as_ref(),
         format!("rl:fedadmin:user:{}:identity", auth.user_id),
@@ -363,7 +363,7 @@ async fn add_peer(
     require_instance_admin(&state.db.pool, auth.user_id).await?;
 
     // Rate limit peering attempts (external HTTP calls)
-    let _ip = extract_client_ip(&headers);
+    let _ip = extract_client_tag(&headers);
     check_rate_limit_with_fallback(
         state.db.redis.as_ref(),
         format!("rl:fedadmin:user:{}:add_peer", auth.user_id),
@@ -373,7 +373,7 @@ async fn add_peer(
     .await?;
     check_rate_limit_with_fallback(
         state.db.redis.as_ref(),
-        format!("rl:fedadmin:ip:{_ip}:add_peer"),
+        format!("rl:fedadmin:tag:{_ip}:add_peer"),
         20, // 20 per IP
         300,
     )
@@ -595,7 +595,7 @@ async fn block_peer(
     require_instance_admin(&state.db.pool, auth.user_id).await?;
 
     // Rate limit block operations
-    let _ip = extract_client_ip(&headers);
+    let _ip = extract_client_tag(&headers);
     check_rate_limit_with_fallback(
         state.db.redis.as_ref(),
         format!("rl:fedadmin:user:{}:block", auth.user_id),

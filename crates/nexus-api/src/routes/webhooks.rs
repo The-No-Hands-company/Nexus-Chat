@@ -5,7 +5,7 @@
 
 use axum::{
     Json, Router,
-    extract::{ConnectInfo, Extension, Path, State},
+    extract::{Extension, Path, State},
     middleware,
     routing::{get, post},
 };
@@ -21,13 +21,12 @@ use nexus_common::{
 use nexus_db::repository::{audit_log, channels, webhooks};
 use rand::Rng;
 use rand::distr::Alphanumeric;
-use std::net::SocketAddr;
 use std::sync::Arc;
 use uuid::Uuid;
 
 use crate::{
     AppState,
-    middleware::{AuthContext, check_rate_limit_with_fallback, extract_client_ip},
+    middleware::{AuthContext, check_rate_limit_with_fallback, extract_client_tag},
 };
 
 /// Webhook routes — authenticated management + unauthenticated execution.
@@ -102,7 +101,7 @@ async fn create_incoming_webhook(
     Json(body): Json<CreateIncomingWebhookRequest>,
 ) -> NexusResult<Json<Webhook>> {
     // Rate limiting: 10 webhook creates per hour per user
-    let ip = extract_client_ip(&headers);
+    let tag = extract_client_tag(&headers);
     check_rate_limit_with_fallback(
         state.db.redis.as_ref(),
         format!("rl:webhook:create:{}", auth.user_id),
@@ -112,7 +111,7 @@ async fn create_incoming_webhook(
     .await?;
     check_rate_limit_with_fallback(
         state.db.redis.as_ref(),
-        format!("rl:webhook:create:ip:{ip}"),
+        format!("rl:webhook:create:tag:{tag}"),
         20,
         3600,
     )
@@ -319,13 +318,13 @@ async fn get_webhook_public(
 /// POST /api/v1/webhooks/{webhook_id}/{token} — Execute a webhook (post a message).
 async fn execute_webhook(
     State(state): State<Arc<AppState>>,
-    ConnectInfo(addr): ConnectInfo<SocketAddr>,
+    headers: axum::http::HeaderMap,
     Path((webhook_id, token)): Path<(Uuid, String)>,
     Json(body): Json<ExecuteWebhookRequest>,
 ) -> NexusResult<axum::http::StatusCode> {
-    // Rate limiting: 30 webhook executions per minute per webhook, 60 per IP
+    // Rate limiting: 30 webhook executions per minute per webhook, 60 per client tag
     // This protects against spam through compromised webhooks
-    let ip = addr.ip().to_string();
+    let tag = extract_client_tag(&headers);
     check_rate_limit_with_fallback(
         state.db.redis.as_ref(),
         format!("rl:webhook:id:{}", webhook_id),
@@ -335,7 +334,7 @@ async fn execute_webhook(
     .await?;
     check_rate_limit_with_fallback(
         state.db.redis.as_ref(),
-        format!("rl:webhook:ip:{ip}"),
+        format!("rl:webhook:tag:{tag}"),
         60,
         60,
     )

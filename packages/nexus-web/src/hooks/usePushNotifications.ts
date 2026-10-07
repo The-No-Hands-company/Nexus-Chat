@@ -185,7 +185,6 @@ async function sendSubscriptionToServer(
         p256dh: keys.p256dh,
         auth: keys.auth,
       },
-      user_agent: navigator.userAgent.slice(0, 200),
     }),
   });
 

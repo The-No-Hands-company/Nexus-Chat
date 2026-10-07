@@ -154,8 +154,6 @@ pub struct InstanceAuditLogEntry {
     pub target_id: Option<Uuid>,
     pub changes: serde_json::Value,
     pub reason: Option<String>,
-    pub ip_address: Option<String>,
-    pub user_agent: Option<String>,
     pub created_at: DateTime<Utc>,
 }
 
@@ -167,8 +165,6 @@ impl<'r> sqlx::FromRow<'r, sqlx::any::AnyRow> for InstanceAuditLogEntry {
             .and_then(|s| serde_json::from_str(&s).ok())
             .unwrap_or_else(|| serde_json::Value::Object(Default::default()));
 
-        let ip: Option<String> = row.try_get("ip_address").ok().flatten();
-
         Ok(InstanceAuditLogEntry {
             id: get_uuid(row, "id")?,
             actor_id: get_uuid(row, "actor_id")?,
@@ -177,8 +173,6 @@ impl<'r> sqlx::FromRow<'r, sqlx::any::AnyRow> for InstanceAuditLogEntry {
             target_id: get_opt_uuid(row, "target_id")?,
             changes,
             reason: row.try_get("reason").ok().flatten(),
-            ip_address: ip,
-            user_agent: row.try_get("user_agent").ok().flatten(),
             created_at: get_datetime(row, "created_at")?,
         })
     }
@@ -195,13 +189,11 @@ pub async fn write_instance_entry(
     target_id: Option<Uuid>,
     changes: &serde_json::Value,
     reason: Option<&str>,
-    ip_address: Option<std::net::IpAddr>,
-    user_agent: Option<&str>,
 ) -> Result<(), sqlx::Error> {
     sqlx::query(
         "INSERT INTO instance_audit_log \
-         (id, actor_id, action, target_type, target_id, changes, reason, ip_address, user_agent, created_at) \
-         VALUES ($1::uuid, $2::uuid, $3, $4, $5::uuid, $6::jsonb, $7, $8::inet, $9, NOW())",
+         (id, actor_id, action, target_type, target_id, changes, reason, created_at) \
+         VALUES ($1::uuid, $2::uuid, $3, $4, $5::uuid, $6::jsonb, $7, NOW())",
     )
     .bind(id.to_string())
     .bind(actor_id.to_string())
@@ -210,8 +202,6 @@ pub async fn write_instance_entry(
     .bind(target_id.map(|u| u.to_string()))
     .bind(serde_json::to_string(changes).unwrap_or_else(|_| "{}".to_string()))
     .bind(reason)
-    .bind(ip_address.map(|ip| ip.to_string()))
-    .bind(user_agent)
     .execute(pool)
     .await?;
     Ok(())
@@ -244,7 +234,7 @@ pub async fn list_instance_entries(
     let where_clause = conditions.join(" AND ");
     let query = format!(
         "SELECT id::text, actor_id::text, action, target_type, target_id::text, 
-                changes, reason, ip_address, user_agent, created_at::text 
+                changes, reason, created_at::text 
          FROM instance_audit_log 
          WHERE {} 
          ORDER BY created_at DESC 

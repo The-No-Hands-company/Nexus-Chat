@@ -37,8 +37,6 @@ interface E2eeDevice {
 interface Session {
   id: string;
   device_info: string | null;
-  user_agent: string | null;
-  ip_address: string | null;
   created_at: string;
   last_seen_at: string;
 }
@@ -818,11 +816,8 @@ export default function SettingsPage() {
               <li key={s.id} className="flex items-start gap-3 rounded-lg bg-bg-800 p-3">
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-fg truncate">
-                    {s.device_info ?? s.user_agent ?? "Unknown device"}
+                    {s.device_info ?? "Unknown device"}
                   </p>
-                  {s.ip_address && (
-                    <p className="text-xs text-muted">{s.ip_address}</p>
-                  )}
                   <p className="text-xs text-muted/60">
                     Last active {formatDistanceToNow(new Date(s.last_seen_at), { addSuffix: true })}
                     {" · "}

@@ -24,7 +24,7 @@ use serde::Deserialize;
 use std::sync::Arc;
 use uuid::Uuid;
 
-use crate::middleware::{check_rate_limit_with_fallback, extract_client_ip};
+use crate::middleware::{check_rate_limit_with_fallback, extract_client_tag};
 use crate::{AppState, middleware::AuthContext};
 use axum::http::HeaderMap;
 
@@ -196,7 +196,7 @@ async fn kick_member(
     .await?;
 
     // Rate limiting: 10 kicks per user per 5 minutes
-    let ip = extract_client_ip(&headers);
+    let tag = extract_client_tag(&headers);
     check_rate_limit_with_fallback(
         state.db.redis.as_ref(),
         format!("rl:kick:user:{}", auth.user_id),
@@ -204,7 +204,7 @@ async fn kick_member(
         300,
     )
     .await?;
-    check_rate_limit_with_fallback(state.db.redis.as_ref(), format!("rl:kick:ip:{ip}"), 20, 300)
+    check_rate_limit_with_fallback(state.db.redis.as_ref(), format!("rl:kick:tag:{tag}"), 20, 300)
         .await?;
 
     // Can't kick the owner
@@ -285,7 +285,7 @@ async fn ban_member(
     .await?;
 
     // Rate limiting: 10 bans per user per 5 minutes
-    let ip = extract_client_ip(&headers);
+    let tag = extract_client_tag(&headers);
     check_rate_limit_with_fallback(
         state.db.redis.as_ref(),
         format!("rl:ban:user:{}", auth.user_id),
@@ -293,7 +293,7 @@ async fn ban_member(
         300,
     )
     .await?;
-    check_rate_limit_with_fallback(state.db.redis.as_ref(), format!("rl:ban:ip:{ip}"), 20, 300)
+    check_rate_limit_with_fallback(state.db.redis.as_ref(), format!("rl:ban:tag:{tag}"), 20, 300)
         .await?;
 
     if target_id == server.owner_id {
@@ -369,7 +369,7 @@ async fn unban_member(
     .await?;
 
     // Rate limiting: 10 unbans per user per 5 minutes
-    let ip = extract_client_ip(&headers);
+    let tag = extract_client_tag(&headers);
     check_rate_limit_with_fallback(
         state.db.redis.as_ref(),
         format!("rl:unban:user:{}", auth.user_id),
@@ -379,7 +379,7 @@ async fn unban_member(
     .await?;
     check_rate_limit_with_fallback(
         state.db.redis.as_ref(),
-        format!("rl:unban:ip:{ip}"),
+        format!("rl:unban:tag:{tag}"),
         20,
         300,
     )
@@ -468,7 +468,7 @@ async fn set_timeout(
     .await?;
 
     // Rate limiting: 10 timeouts per user per 5 minutes
-    let ip = extract_client_ip(&headers);
+    let tag = extract_client_tag(&headers);
     check_rate_limit_with_fallback(
         state.db.redis.as_ref(),
         format!("rl:timeout:user:{}", auth.user_id),
@@ -478,7 +478,7 @@ async fn set_timeout(
     .await?;
     check_rate_limit_with_fallback(
         state.db.redis.as_ref(),
-        format!("rl:timeout:ip:{ip}"),
+        format!("rl:timeout:tag:{tag}"),
         20,
         300,
     )
@@ -723,7 +723,7 @@ async fn resolve_report(
     Json(body): Json<ResolveReportBody>,
 ) -> NexusResult<Json<serde_json::Value>> {
     // Rate limiting: 20 report resolutions per user per 5 minutes
-    let ip = extract_client_ip(&headers);
+    let tag = extract_client_tag(&headers);
     check_rate_limit_with_fallback(
         state.db.redis.as_ref(),
         format!("rl:report_resolve:user:{}", auth.user_id),
@@ -733,7 +733,7 @@ async fn resolve_report(
     .await?;
     check_rate_limit_with_fallback(
         state.db.redis.as_ref(),
-        format!("rl:report_resolve:ip:{ip}"),
+        format!("rl:report_resolve:tag:{tag}"),
         40,
         300,
     )
@@ -789,7 +789,7 @@ async fn dismiss_report(
     Path((server_id, report_id)): Path<(Uuid, Uuid)>,
 ) -> NexusResult<Json<serde_json::Value>> {
     // Rate limiting: 20 report dismissals per user per 5 minutes
-    let ip = extract_client_ip(&headers);
+    let tag = extract_client_tag(&headers);
     check_rate_limit_with_fallback(
         state.db.redis.as_ref(),
         format!("rl:report_dismiss:user:{}", auth.user_id),
@@ -799,7 +799,7 @@ async fn dismiss_report(
     .await?;
     check_rate_limit_with_fallback(
         state.db.redis.as_ref(),
-        format!("rl:report_dismiss:ip:{ip}"),
+        format!("rl:report_dismiss:tag:{tag}"),
         40,
         300,
     )
@@ -880,7 +880,7 @@ async fn add_word_filter(
     Json(body): Json<AddFilterBody>,
 ) -> NexusResult<Json<moderation::WordFilter>> {
     // Rate limiting: 10 word filter changes per user per 5 minutes
-    let ip = extract_client_ip(&headers);
+    let tag = extract_client_tag(&headers);
     check_rate_limit_with_fallback(
         state.db.redis.as_ref(),
         format!("rl:word_filter:user:{}", auth.user_id),
@@ -890,7 +890,7 @@ async fn add_word_filter(
     .await?;
     check_rate_limit_with_fallback(
         state.db.redis.as_ref(),
-        format!("rl:word_filter:ip:{ip}"),
+        format!("rl:word_filter:tag:{tag}"),
         20,
         300,
     )
@@ -969,7 +969,7 @@ async fn remove_word_filter(
     Path((server_id, filter_id)): Path<(Uuid, Uuid)>,
 ) -> NexusResult<Json<serde_json::Value>> {
     // Rate limiting: 10 word filter changes per user per 5 minutes
-    let ip = extract_client_ip(&headers);
+    let tag = extract_client_tag(&headers);
     check_rate_limit_with_fallback(
         state.db.redis.as_ref(),
         format!("rl:word_filter:user:{}", auth.user_id),
@@ -979,7 +979,7 @@ async fn remove_word_filter(
     .await?;
     check_rate_limit_with_fallback(
         state.db.redis.as_ref(),
-        format!("rl:word_filter:ip:{ip}"),
+        format!("rl:word_filter:tag:{tag}"),
         20,
         300,
     )

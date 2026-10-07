@@ -198,8 +198,6 @@ async fn update_user_flags(
             "clear_flags": body.clear_flags,
         }),
         None,
-        None, // IP address not available here, would need headers
-        None, // user_agent
     )
     .await;
 
@@ -296,7 +294,6 @@ async fn get_instance_audit(
                 "target_id":   e.target_id,
                 "changes":     e.changes,
                 "reason":      e.reason,
-                "ip_address":  e.ip_address,
                 "created_at":  e.created_at,
             })
         })

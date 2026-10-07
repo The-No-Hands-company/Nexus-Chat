@@ -24,7 +24,7 @@ use uuid::Uuid;
 
 use crate::{
     AppState,
-    middleware::{AuthContext, check_rate_limit_with_fallback, extract_client_ip},
+    middleware::{AuthContext, check_rate_limit_with_fallback, extract_client_tag},
 };
 
 /// Bot application routes.
@@ -150,7 +150,7 @@ async fn create_application(
         }
 
     // Rate limiting: 5 bot apps per hour per user
-    let ip = extract_client_ip(&headers);
+    let tag = extract_client_tag(&headers);
     check_rate_limit_with_fallback(
         state.db.redis.as_ref(),
         format!("rl:bot:create:{}", auth.user_id),
@@ -160,7 +160,7 @@ async fn create_application(
     .await?;
     check_rate_limit_with_fallback(
         state.db.redis.as_ref(),
-        format!("rl:bot:create:ip:{ip}"),
+        format!("rl:bot:create:tag:{tag}"),
         10,
         3600,
     )
@@ -319,7 +319,7 @@ async fn install_bot(
     Json(body): Json<InstallBotBody>,
 ) -> NexusResult<Json<BotServerInstall>> {
     // Rate limiting: 10 bot installs per hour per user
-    let ip = extract_client_ip(&headers);
+    let tag = extract_client_tag(&headers);
     check_rate_limit_with_fallback(
         state.db.redis.as_ref(),
         format!("rl:bot:install:{}", auth.user_id),
@@ -329,7 +329,7 @@ async fn install_bot(
     .await?;
     check_rate_limit_with_fallback(
         state.db.redis.as_ref(),
-        format!("rl:bot:install:ip:{ip}"),
+        format!("rl:bot:install:tag:{tag}"),
         20,
         3600,
     )

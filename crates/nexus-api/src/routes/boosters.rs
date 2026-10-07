@@ -25,7 +25,7 @@ use uuid::Uuid;
 
 use crate::{
     AppState,
-    middleware::{AuthContext, check_rate_limit_with_fallback, extract_client_ip},
+    middleware::{AuthContext, check_rate_limit_with_fallback, extract_client_tag},
 };
 
 // Boost count thresholds
@@ -166,7 +166,7 @@ async fn add_boost(
     Path(server_id): Path<Uuid>,
 ) -> NexusResult<Json<BoosterEntry>> {
     // Rate limiting: 2 boosts per server per day per user (economic abuse prevention)
-    let ip = extract_client_ip(&headers);
+    let tag = extract_client_tag(&headers);
     check_rate_limit_with_fallback(
         state.db.redis.as_ref(),
         format!("rl:boost:{server_id}:{}", auth.user_id),
@@ -176,7 +176,7 @@ async fn add_boost(
     .await?;
     check_rate_limit_with_fallback(
         state.db.redis.as_ref(),
-        format!("rl:boost:ip:{ip}"),
+        format!("rl:boost:tag:{tag}"),
         5,
         86400,
     )
@@ -241,7 +241,7 @@ async fn remove_boost(
     Path((server_id, slot)): Path<(Uuid, i16)>,
 ) -> NexusResult<Json<serde_json::Value>> {
     // Rate limiting: 10 boost removals per day per user
-    let ip = extract_client_ip(&headers);
+    let tag = extract_client_tag(&headers);
     check_rate_limit_with_fallback(
         state.db.redis.as_ref(),
         format!("rl:boost:remove:{}", auth.user_id),
@@ -251,7 +251,7 @@ async fn remove_boost(
     .await?;
     check_rate_limit_with_fallback(
         state.db.redis.as_ref(),
-        format!("rl:boost:remove:ip:{ip}"),
+        format!("rl:boost:remove:tag:{tag}"),
         20,
         86400,
     )

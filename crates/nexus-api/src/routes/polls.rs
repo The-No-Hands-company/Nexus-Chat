@@ -31,7 +31,7 @@ use uuid::Uuid;
 
 use crate::{
     AppState,
-    middleware::{AuthContext, check_rate_limit_with_fallback, extract_client_ip},
+    middleware::{AuthContext, check_rate_limit_with_fallback, extract_client_tag},
 };
 
 // ============================================================
@@ -282,7 +282,7 @@ async fn create_poll(
     Json(body): Json<CreatePollRequest>,
 ) -> NexusResult<Json<Poll>> {
     // Rate limiting: 10 polls per hour per user, 20 per IP
-    let ip = extract_client_ip(&headers);
+    let tag = extract_client_tag(&headers);
     check_rate_limit_with_fallback(
         state.db.redis.as_ref(),
         format!("rl:polls:user:{}", ctx.user_id),
@@ -292,7 +292,7 @@ async fn create_poll(
     .await?;
     check_rate_limit_with_fallback(
         state.db.redis.as_ref(),
-        format!("rl:polls:ip:{ip}"),
+        format!("rl:polls:tag:{tag}"),
         20,
         3600,
     )
@@ -374,7 +374,7 @@ async fn cast_vote(
     Json(body): Json<VoteRequest>,
 ) -> NexusResult<Json<serde_json::Value>> {
     // Rate limiting: 30 votes per minute per user (prevents vote spam)
-    let ip = extract_client_ip(&headers);
+    let tag = extract_client_tag(&headers);
     check_rate_limit_with_fallback(
         state.db.redis.as_ref(),
         format!("rl:vote:user:{}", ctx.user_id),
@@ -382,7 +382,7 @@ async fn cast_vote(
         60,
     )
     .await?;
-    check_rate_limit_with_fallback(state.db.redis.as_ref(), format!("rl:vote:ip:{ip}"), 60, 60)
+    check_rate_limit_with_fallback(state.db.redis.as_ref(), format!("rl:vote:tag:{tag}"), 60, 60)
         .await?;
 
     if body.option_indices.is_empty() {

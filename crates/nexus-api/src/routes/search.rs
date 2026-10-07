@@ -20,7 +20,7 @@ use uuid::Uuid;
 
 use crate::{
     AppState,
-    middleware::{AuthContext, check_rate_limit_with_fallback, extract_client_ip},
+    middleware::{AuthContext, check_rate_limit_with_fallback, extract_client_tag},
 };
 
 pub fn router() -> Router<Arc<AppState>> {
@@ -80,7 +80,7 @@ async fn search_messages_global(
 ) -> NexusResult<Json<SearchResult>> {
     // Rate limit: 20 searches per user per 60 seconds.
     // Search is expensive (MeiliSearch + DB fan-out); protect against DoS.
-    let ip = extract_client_ip(&headers);
+    let tag = extract_client_tag(&headers);
     check_rate_limit_with_fallback(
         state.db.redis.as_ref(),
         format!("rl:search:user:{}", auth.user_id),
@@ -90,7 +90,7 @@ async fn search_messages_global(
     .await?;
     check_rate_limit_with_fallback(
         state.db.redis.as_ref(),
-        format!("rl:search:ip:{ip}"),
+        format!("rl:search:tag:{tag}"),
         40,
         60,
     )
@@ -206,7 +206,7 @@ async fn search_server_messages(
     Path(server_id): Path<Uuid>,
     Query(params): Query<SearchParams>,
 ) -> NexusResult<Json<SearchResult>> {
-    let ip = extract_client_ip(&headers);
+    let tag = extract_client_tag(&headers);
     check_rate_limit_with_fallback(
         state.db.redis.as_ref(),
         format!("rl:search:user:{}", auth.user_id),
@@ -216,7 +216,7 @@ async fn search_server_messages(
     .await?;
     check_rate_limit_with_fallback(
         state.db.redis.as_ref(),
-        format!("rl:search:ip:{ip}"),
+        format!("rl:search:tag:{tag}"),
         40,
         60,
     )

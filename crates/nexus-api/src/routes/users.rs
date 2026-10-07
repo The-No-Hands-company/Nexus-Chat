@@ -20,7 +20,7 @@ use uuid::Uuid;
 
 use crate::{
     AppState,
-    middleware::{AuthContext, check_rate_limit_with_fallback, extract_client_ip},
+    middleware::{AuthContext, check_rate_limit_with_fallback, extract_client_tag},
 };
 
 /// User routes (all require authentication).
@@ -215,7 +215,7 @@ async fn delete_account(
     Json(_body): Json<DeleteAccountBody>,
 ) -> NexusResult<StatusCode> {
     // Rate limit account deletion attempts (3 per hour per user)
-    let ip = extract_client_ip(&headers);
+    let tag = extract_client_tag(&headers);
     check_rate_limit_with_fallback(
         state.db.redis.as_ref(),
         format!("rl:user:{}:delete_account", auth_ctx.user_id),
@@ -225,7 +225,7 @@ async fn delete_account(
     .await?;
     check_rate_limit_with_fallback(
         state.db.redis.as_ref(),
-        format!("rl:delete_account:ip:{ip}"),
+        format!("rl:delete_account:tag:{tag}"),
         10,
         3600,
     )
@@ -271,7 +271,7 @@ async fn cancel_account_deletion(
     State(state): State<Arc<AppState>>,
     headers: HeaderMap,
 ) -> NexusResult<Json<CancelDeletionResponse>> {
-    let ip = extract_client_ip(&headers);
+    let tag = extract_client_tag(&headers);
     check_rate_limit_with_fallback(
         state.db.redis.as_ref(),
         format!("rl:user:{}:cancel_delete_account", auth_ctx.user_id),
@@ -281,7 +281,7 @@ async fn cancel_account_deletion(
     .await?;
     check_rate_limit_with_fallback(
         state.db.redis.as_ref(),
-        format!("rl:cancel_delete_account:ip:{ip}"),
+        format!("rl:cancel_delete_account:tag:{tag}"),
         15,
         3600,
     )

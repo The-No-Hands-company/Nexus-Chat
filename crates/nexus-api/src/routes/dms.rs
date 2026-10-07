@@ -28,7 +28,7 @@ use uuid::Uuid;
 
 use crate::{
     AppState,
-    middleware::{AuthContext, check_rate_limit_with_fallback, extract_client_ip},
+    middleware::{AuthContext, check_rate_limit_with_fallback, extract_client_tag},
 };
 
 /// DM routes — mounted under /users/@me/channels.
@@ -173,7 +173,7 @@ async fn create_dm(
     Json(body): Json<CreateDmRequest>,
 ) -> NexusResult<Json<serde_json::Value>> {
     // ── Rate limiting: 10 DM creates per user per minute ────────────
-    let ip = extract_client_ip(&headers);
+    let tag = extract_client_tag(&headers);
     check_rate_limit_with_fallback(
         state.db.redis.as_ref(),
         format!("rl:dm:create:{}", auth.user_id),
@@ -183,7 +183,7 @@ async fn create_dm(
     .await?;
     check_rate_limit_with_fallback(
         state.db.redis.as_ref(),
-        format!("rl:dm:create:ip:{ip}"),
+        format!("rl:dm:create:tag:{tag}"),
         20,
         60,
     )

@@ -30,7 +30,7 @@ use uuid::Uuid;
 
 use crate::{
     AppState,
-    middleware::{AuthContext, check_rate_limit_with_fallback, extract_client_ip},
+    middleware::{AuthContext, check_rate_limit_with_fallback, extract_client_tag},
 };
 
 /// Message routes.
@@ -144,7 +144,7 @@ async fn send_message(
     validate_request(&body)?;
 
     // ── Rate limiting: 30 messages per user per 10 seconds ─────────────────
-    let ip = extract_client_ip(&headers);
+    let tag = extract_client_tag(&headers);
     check_rate_limit_with_fallback(
         state.db.redis.as_ref(),
         format!("rl:msg:user:{}", auth.user_id),
@@ -152,7 +152,7 @@ async fn send_message(
         10,
     )
     .await?;
-    check_rate_limit_with_fallback(state.db.redis.as_ref(), format!("rl:msg:ip:{ip}"), 60, 10)
+    check_rate_limit_with_fallback(state.db.redis.as_ref(), format!("rl:msg:tag:{tag}"), 60, 10)
         .await?;
 
     // Verify channel exists

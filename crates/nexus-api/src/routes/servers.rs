@@ -24,7 +24,7 @@ use uuid::Uuid;
 
 use crate::{
     AppState,
-    middleware::{AuthContext, check_rate_limit_with_fallback, extract_client_ip},
+    middleware::{AuthContext, check_rate_limit_with_fallback, extract_client_tag},
 };
 
 /// Server routes.
@@ -108,7 +108,7 @@ async fn create_server(
 
     // Rate limit server creation to 3 per hour per user.
     // This is to prevent abuse and ensure that server creation is not too expensive.
-    let ip = extract_client_ip(&headers);
+    let tag = extract_client_tag(&headers);
     check_rate_limit_with_fallback(
         state.db.redis.as_ref(),
         format!("rl:server:create:user:{}", auth.user_id),
@@ -118,7 +118,7 @@ async fn create_server(
     .await?;
     check_rate_limit_with_fallback(
         state.db.redis.as_ref(),
-        format!("rl:server:create:ip:{ip}"),
+        format!("rl:server:create:tag:{tag}"),
         5, // 5 per IP
         3600,
     )
@@ -381,7 +381,7 @@ async fn join_server(
 ) -> NexusResult<Json<serde_json::Value>> {
     // Rate limiting: 10 joins per hour per user, 20 per IP
     // Protects against rapid join/leave cycles and spam joins
-    let ip = extract_client_ip(&headers);
+    let tag = extract_client_tag(&headers);
     check_rate_limit_with_fallback(
         state.db.redis.as_ref(),
         format!("rl:join:user:{}", auth.user_id),
@@ -391,7 +391,7 @@ async fn join_server(
     .await?;
     check_rate_limit_with_fallback(
         state.db.redis.as_ref(),
-        format!("rl:join:ip:{ip}"),
+        format!("rl:join:tag:{tag}"),
         20,
         3600,
     )
@@ -571,7 +571,7 @@ async fn join_via_invite_route(
     // Rate limit invite joins to prevent brute-force enumeration of invite codes.
     // Even with 12-char codes (~71 bit entropy) an attacker sending millions of
     // requests could eventually find a valid code without this guard.
-    let ip = extract_client_ip(&headers);
+    let tag = extract_client_tag(&headers);
     check_rate_limit_with_fallback(
         state.db.redis.as_ref(),
         format!("rl:invite:user:{}", auth.user_id),
@@ -581,7 +581,7 @@ async fn join_via_invite_route(
     .await?;
     check_rate_limit_with_fallback(
         state.db.redis.as_ref(),
-        format!("rl:invite:ip:{ip}"),
+        format!("rl:invite:tag:{tag}"),
         20, // 20 per IP
         300,
     )

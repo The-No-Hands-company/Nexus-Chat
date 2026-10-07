@@ -31,7 +31,7 @@ use uuid::Uuid;
 
 use crate::{
     AppState,
-    middleware::{AuthContext, check_rate_limit_with_fallback, extract_client_ip},
+    middleware::{AuthContext, check_rate_limit_with_fallback, extract_client_tag},
 };
 
 pub fn router() -> Router<Arc<AppState>> {
@@ -82,7 +82,7 @@ async fn register_device(
     Json(body): Json<RegisterDeviceRequest>,
 ) -> NexusResult<Json<Device>> {
     // Rate limiting: 5 device registrations per day per user
-    let ip = extract_client_ip(&headers);
+    let tag = extract_client_tag(&headers);
     check_rate_limit_with_fallback(
         state.db.redis.as_ref(),
         format!("rl:e2ee:device:{}", auth.user_id),
@@ -92,7 +92,7 @@ async fn register_device(
     .await?;
     check_rate_limit_with_fallback(
         state.db.redis.as_ref(),
-        format!("rl:e2ee:device:ip:{ip}"),
+        format!("rl:e2ee:device:tag:{tag}"),
         10,
         86400,
     )

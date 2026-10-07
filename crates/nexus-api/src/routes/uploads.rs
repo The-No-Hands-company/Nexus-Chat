@@ -18,7 +18,7 @@ use uuid::Uuid;
 
 use crate::{
     AppState,
-    middleware::{AuthContext, check_rate_limit_with_fallback, extract_client_ip},
+    middleware::{AuthContext, check_rate_limit_with_fallback, extract_client_tag},
 };
 use axum::extract::Extension;
 
@@ -92,7 +92,7 @@ async fn upload_file(
     mut multipart: Multipart,
 ) -> NexusResult<Json<AttachmentResponse>> {
     // ── Rate limiting: 20 uploads per user per 60 seconds ──────────────────
-    let ip = extract_client_ip(&headers);
+    let tag = extract_client_tag(&headers);
     check_rate_limit_with_fallback(
         state.db.redis.as_ref(),
         format!("rl:upload:user:{}", auth.user_id),
@@ -103,7 +103,7 @@ async fn upload_file(
     // Secondary IP-based limit to catch shared-token abuse
     check_rate_limit_with_fallback(
         state.db.redis.as_ref(),
-        format!("rl:upload:ip:{ip}"),
+        format!("rl:upload:tag:{tag}"),
         40,
         60,
     )
@@ -314,7 +314,7 @@ async fn delete_attachment(
     Path(id): Path<Uuid>,
 ) -> NexusResult<Json<serde_json::Value>> {
     // Rate limiting: 30 attachment deletions per user per 5 minutes
-    let ip = extract_client_ip(&headers);
+    let tag = extract_client_tag(&headers);
     check_rate_limit_with_fallback(
         state.db.redis.as_ref(),
         format!("rl:attachment_delete:user:{}", auth.user_id),
@@ -324,7 +324,7 @@ async fn delete_attachment(
     .await?;
     check_rate_limit_with_fallback(
         state.db.redis.as_ref(),
-        format!("rl:attachment_delete:ip:{ip}"),
+        format!("rl:attachment_delete:tag:{tag}"),
         50,
         300,
     )

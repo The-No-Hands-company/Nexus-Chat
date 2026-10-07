@@ -19,7 +19,6 @@ use axum::http::HeaderMap;
 use axum::{
     Json, Router,
     extract::{Extension, Path, Query, State},
-    http::header::USER_AGENT,
     middleware,
     routing::{get, post},
 };
@@ -36,7 +35,7 @@ use uuid::Uuid;
 
 use crate::{
     AppState,
-    middleware::{AuthContext, check_rate_limit_with_fallback, extract_client_ip},
+    middleware::{AuthContext, check_rate_limit_with_fallback, extract_client_tag},
 };
 
 pub fn router() -> Router<Arc<AppState>> {
@@ -203,7 +202,7 @@ async fn suspend_user(
     require_instance_admin(&state.db.pool, auth.user_id).await?;
 
     // Rate limiting: 10 admin actions per minute per admin
-    let ip = extract_client_ip(&headers);
+    let tag = extract_client_tag(&headers);
     check_rate_limit_with_fallback(
         state.db.redis.as_ref(),
         format!("rl:admin:user:{}", auth.user_id),
@@ -211,7 +210,7 @@ async fn suspend_user(
         60,
     )
     .await?;
-    check_rate_limit_with_fallback(state.db.redis.as_ref(), format!("rl:admin:ip:{ip}"), 20, 60)
+    check_rate_limit_with_fallback(state.db.redis.as_ref(), format!("rl:admin:tag:{tag}"), 20, 60)
         .await?;
 
     if user_id == auth.user_id {
@@ -225,8 +224,7 @@ async fn suspend_user(
         .map_err(NexusError::from)?;
 
     // Audit log
-    let ip = extract_client_ip(&headers);
-    let ua = headers.get(USER_AGENT).and_then(|v| v.to_str().ok());
+    let tag = extract_client_tag(&headers);
     let _ = audit_log::write_instance_entry(
         &state.db.pool,
         snowflake::generate_id(),
@@ -236,8 +234,6 @@ async fn suspend_user(
         Some(user_id),
         &serde_json::json!({"action": "suspended"}),
         None,
-        ip.parse().ok(),
-        ua,
     )
     .await;
 
@@ -260,7 +256,7 @@ async fn unsuspend_user(
     require_instance_admin(&state.db.pool, auth.user_id).await?;
 
     // Rate limiting: 10 admin actions per minute per admin
-    let ip = extract_client_ip(&headers);
+    let tag = extract_client_tag(&headers);
     check_rate_limit_with_fallback(
         state.db.redis.as_ref(),
         format!("rl:admin:user:{}", auth.user_id),
@@ -268,7 +264,7 @@ async fn unsuspend_user(
         60,
     )
     .await?;
-    check_rate_limit_with_fallback(state.db.redis.as_ref(), format!("rl:admin:ip:{ip}"), 20, 60)
+    check_rate_limit_with_fallback(state.db.redis.as_ref(), format!("rl:admin:tag:{tag}"), 20, 60)
         .await?;
 
     users::remove_user_flags(&state.db.pool, user_id, user_flags::SUSPENDED)
@@ -276,8 +272,7 @@ async fn unsuspend_user(
         .map_err(NexusError::from)?;
 
     // Audit log
-    let ip = extract_client_ip(&headers);
-    let ua = headers.get(USER_AGENT).and_then(|v| v.to_str().ok());
+    let tag = extract_client_tag(&headers);
     let _ = audit_log::write_instance_entry(
         &state.db.pool,
         snowflake::generate_id(),
@@ -287,8 +282,6 @@ async fn unsuspend_user(
         Some(user_id),
         &serde_json::json!({"action": "unsuspended"}),
         None,
-        ip.parse().ok(),
-        ua,
     )
     .await;
 
@@ -311,7 +304,7 @@ async fn disable_user(
     require_instance_admin(&state.db.pool, auth.user_id).await?;
 
     // Rate limiting: 10 admin actions per minute per admin
-    let ip = extract_client_ip(&headers);
+    let tag = extract_client_tag(&headers);
     check_rate_limit_with_fallback(
         state.db.redis.as_ref(),
         format!("rl:admin:user:{}", auth.user_id),
@@ -319,7 +312,7 @@ async fn disable_user(
         60,
     )
     .await?;
-    check_rate_limit_with_fallback(state.db.redis.as_ref(), format!("rl:admin:ip:{ip}"), 20, 60)
+    check_rate_limit_with_fallback(state.db.redis.as_ref(), format!("rl:admin:tag:{tag}"), 20, 60)
         .await?;
 
     if user_id == auth.user_id {
@@ -333,8 +326,7 @@ async fn disable_user(
         .map_err(NexusError::from)?;
 
     // Audit log
-    let ip = extract_client_ip(&headers);
-    let ua = headers.get(USER_AGENT).and_then(|v| v.to_str().ok());
+    let tag = extract_client_tag(&headers);
     let _ = audit_log::write_instance_entry(
         &state.db.pool,
         snowflake::generate_id(),
@@ -344,8 +336,6 @@ async fn disable_user(
         Some(user_id),
         &serde_json::json!({"action": "disabled"}),
         None,
-        ip.parse().ok(),
-        ua,
     )
     .await;
 
