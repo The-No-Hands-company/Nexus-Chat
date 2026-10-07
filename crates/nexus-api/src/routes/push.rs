@@ -118,7 +118,6 @@ async fn subscribe(
     .map_err(|e| NexusError::Internal(e.into()))?;
 
     tracing::info!(
-        user_id = %auth.user_id,
         endpoint_prefix = %body.endpoint.chars().take(40).collect::<String>(),
         "Push subscription registered"
     );

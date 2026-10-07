@@ -521,7 +521,6 @@ async fn handle_connection(socket: WebSocket, state: Arc<GatewayState>, identity
                                 if !account_ok {
                                     tracing::warn!(
                                         session = %session_id,
-                                        user_id = %uid,
                                         "Gateway IDENTIFY rejected: account suspended or disabled"
                                     );
                                     let _ = direct_tx
@@ -588,7 +587,6 @@ async fn handle_connection(socket: WebSocket, state: Arc<GatewayState>, identity
 
                                 tracing::info!(
                                     session = %session_id,
-                                    user = %username,
                                     "Gateway READY sent"
                                 );
                             }

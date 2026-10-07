@@ -108,7 +108,6 @@ impl VoiceStateManager {
             .push(user_id);
 
         tracing::info!(
-            user = %user_id,
             channel = %channel_id,
             server = ?server_id,
             "User joined voice channel"
@@ -133,7 +132,6 @@ impl VoiceStateManager {
             }
 
             tracing::info!(
-                user = %user_id,
                 channel = %s.channel_id,
                 "User left voice channel"
             );

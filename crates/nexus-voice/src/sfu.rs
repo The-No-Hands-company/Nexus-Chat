@@ -242,8 +242,7 @@ async fn run_sfu_room(
                         match create_peer(peer_id, user_id, &offer_sdp, local_ip, shared_tx.clone()).await {
                             Ok((mut peer, answer_sdp)) => {
                                 tracing::info!(
-                                    channel = %channel_id, peer = %peer_id,
-                                    user = %user_id, "Peer added"
+                                    channel = %channel_id, peer = %peer_id, "Peer added"
                                 );
                                 // Register forwarding tracks: this peer gains outgoing
                                 // mids for all existing peers' recv tracks, and all

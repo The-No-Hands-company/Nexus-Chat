@@ -246,10 +246,7 @@ async fn kick_member(
 
     tracing::info!(
         server_id = %server_id,
-        actor = %auth.user_id,
-        target = %target_id,
-        "Member kicked",
-    );
+        "Member kicked");
 
     Ok(Json(serde_json::json!({ "kicked": true })))
 }
@@ -340,11 +337,8 @@ async fn ban_member(
 
     tracing::info!(
         server_id = %server_id,
-        actor    = %auth.user_id,
-        target   = %target_id,
         temp     = expires_at.is_some(),
-        "Member banned",
-    );
+        "Member banned");
 
     Ok(Json(ban))
 }
@@ -531,11 +525,8 @@ async fn set_timeout(
 
     tracing::info!(
         server_id = %server_id,
-        actor = %auth.user_id,
-        target = %target_id,
         duration_secs,
-        "Member timed out",
-    );
+        "Member timed out");
 
     // Notify connected clients so they update the member's timeout state in real-time.
     let _ = state.gateway_tx.send(GatewayEvent {

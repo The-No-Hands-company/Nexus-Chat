@@ -132,7 +132,6 @@ impl PushSender {
                 }
                 Err(e) => {
                     tracing::warn!(
-                        user_id = %user_id,
                         endpoint_prefix = %sub.endpoint.chars().take(40).collect::<String>(),
                         error = %e,
                         "Push notification delivery failed"

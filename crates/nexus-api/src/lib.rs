@@ -56,6 +56,72 @@ pub struct AppState {
     pub vapid_public_key: Option<String>,
 }
 
+/// Span for one HTTP request: method and matched route template only. Never the
+/// URI, query string, or path-parameter values (zero-retention log rule).
+pub(crate) fn request_span<B>(req: &axum::http::Request<B>) -> tracing::Span {
+    let route = req
+        .extensions()
+        .get::<axum::extract::MatchedPath>()
+        .map(|m| m.as_str())
+        .unwrap_or("-");
+    tracing::info_span!("request", method = %req.method(), route = %route)
+}
+
+#[cfg(test)]
+mod request_span_tests {
+    use super::request_span;
+    use axum::{routing::get, Router};
+    use std::sync::{Arc, Mutex};
+    use tower::ServiceExt;
+
+    #[derive(Clone)]
+    struct Buf(Arc<Mutex<Vec<u8>>>);
+    impl std::io::Write for Buf {
+        fn write(&mut self, b: &[u8]) -> std::io::Result<usize> {
+            self.0.lock().unwrap().extend_from_slice(b);
+            Ok(b.len())
+        }
+        fn flush(&mut self) -> std::io::Result<()> {
+            Ok(())
+        }
+    }
+
+    #[tokio::test]
+    async fn span_has_no_query_or_path_values() {
+        let buf = Buf(Arc::new(Mutex::new(Vec::new())));
+        let w = buf.clone();
+        let sub = tracing_subscriber::fmt()
+            .with_writer(move || w.clone())
+            .with_ansi(false)
+            .with_max_level(tracing::Level::INFO)
+            .finish();
+        let _g = tracing::subscriber::set_default(sub);
+
+        let app = Router::new()
+            .route(
+                "/users/{id}/x",
+                get(|| async {
+                    tracing::info!("handled");
+                    "ok"
+                }),
+            )
+            .layer(tower_http::trace::TraceLayer::new_for_http().make_span_with(request_span));
+        let req = axum::http::Request::builder()
+            .uri("/users/user-canary-77/x?q=secret-canary")
+            .body(axum::body::Body::empty())
+            .unwrap();
+        let resp = app.oneshot(req).await.unwrap();
+        assert_eq!(resp.status(), 200);
+
+        let out = String::from_utf8(buf.0.lock().unwrap().clone()).unwrap();
+        assert!(out.contains("handled"), "capture saw nothing: {out}");
+        assert!(out.contains("method=GET"), "{out}");
+        assert!(out.contains("route=/users/{id}/x"), "{out}");
+        assert!(!out.contains("secret-canary"), "{out}");
+        assert!(!out.contains("user-canary-77"), "{out}");
+    }
+}
+
 /// Build the complete API router with all routes and middleware.
 pub fn build_router(state: AppState) -> Router {
     // Create the Arc up-front so we can share it as an Axum Extension
@@ -169,12 +235,9 @@ pub fn build_router(state: AppState) -> Router {
         .layer(build_cors_layer())
         .layer(
             tower_http::trace::TraceLayer::new_for_http()
-                // Emit a span per request with method + URI path as structured fields
-                .make_span_with(
-                    tower_http::trace::DefaultMakeSpan::new()
-                        .level(tracing::Level::INFO)
-                        .include_headers(false),
-                )
+                // One span per request carrying ONLY the method and the matched route
+                // template (never the URI, query string, or path parameter values).
+                .make_span_with(request_span)
                 // Emit a record per response with status + latency_ms as structured fields
                 .on_response(
                     tower_http::trace::DefaultOnResponse::new()

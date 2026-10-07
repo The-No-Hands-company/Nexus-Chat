@@ -254,7 +254,7 @@ async fn delete_account(
     .await
     .map_err(|e| NexusError::Internal(e.into()))?;
 
-    tracing::info!(user_id = %user.id, "Account deletion scheduled (30-day grace period)");
+    tracing::info!( "Account deletion scheduled (30-day grace period)");
     Ok(StatusCode::ACCEPTED)
 }
 
@@ -294,13 +294,13 @@ async fn cancel_account_deletion(
         });
     }
 
-    let user = users::find_by_id(&state.db.pool, auth_ctx.user_id)
+    let _user = users::find_by_id(&state.db.pool, auth_ctx.user_id)
         .await?
         .ok_or(NexusError::NotFound {
             resource: "User".into(),
         })?;
 
-    tracing::info!(user_id = %user.id, "Account deletion cancelled");
+    tracing::info!( "Account deletion cancelled");
 
     Ok(Json(CancelDeletionResponse {
         scheduled_deletion_at: None,
@@ -380,7 +380,7 @@ async fn data_export(
         })
         .collect();
 
-    tracing::info!(user_id = %user.id, "Data export generated");
+    tracing::info!( "Data export generated");
 
     let user_resp = UserResponse::from(user.clone());
     Ok(Json(serde_json::json!({

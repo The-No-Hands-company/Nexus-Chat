@@ -34,9 +34,9 @@ pub fn router() -> Router<Arc<AppState>> {
 ///
 /// If the environment variable `NEXUS_METRICS_TOKEN` is set, the endpoint
 /// requires `Authorization: Bearer <token>`.  If it is **not** set, the
-/// endpoint is restricted to loopback addresses only (127.0.0.1 / ::1),
-/// checked via `X-Forwarded-For` / `X-Real-IP` (same logic as the auth
-/// rate limiter).
+/// endpoint is reachable only by a tagless request, i.e. one that carries no
+/// client-address tag (a direct, local request). Caddy answers 403 for
+/// `/metrics`, so nothing arriving through the proxy path gets in.
 ///
 /// Set `NEXUS_METRICS_TOKEN=your-secret` for external Prometheus scrapers.
 async fn metrics_handler(

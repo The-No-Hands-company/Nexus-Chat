@@ -78,7 +78,7 @@ async fn verify_email(
         .await
         .map_err(|e| NexusError::Internal(e.into()))?;
 
-    tracing::info!(user_id = %user_id, "Email verified");
+    tracing::info!( "Email verified");
     Ok(Json(VerifyResponse { verified: true }))
 }
 
@@ -149,15 +149,14 @@ async fn resend_verification(
             .send_verification_email(email_addr, &user.username, &raw_token)
             .await
         {
-            tracing::warn!(user_id = %user.id, error = %e, "Failed to send verification email");
+            tracing::warn!( error = %e, "Failed to send verification email");
         }
     tracing::debug!(
-        user_id = %user.id,
         token = %raw_token,
         "Verification email re-sent (token logged for dev)"
     );
 
-    tracing::info!(user_id = %user.id, "Verification email queued");
+    tracing::info!( "Verification email queued");
     Ok(Json(ResendResponse {
         sent: true,
         message: "Verification email sent.".into(),

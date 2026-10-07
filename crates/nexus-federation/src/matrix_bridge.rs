@@ -189,7 +189,7 @@ impl MatrixBridge {
             .unwrap_or("m.text");
 
         if !matches!(msgtype, "m.text" | "m.notice" | "m.emote") {
-            debug!("Bridge: skipping msgtype={} from {}", msgtype, ev.sender);
+            debug!("Bridge: skipping msgtype={}", msgtype);
             return Ok(None);
         }
 
@@ -237,8 +237,8 @@ impl MatrixBridge {
         .map_err(|e| BridgeError::Database(e.to_string()))?;
 
         info!(
-            "Bridge: Matrix message from {} in {} → nexus channel {} (msg {})",
-            ev.sender, ev.room_id, channel_id, message_id
+            "Bridge: Matrix message in {} → nexus channel {} (msg {})",
+            ev.room_id, channel_id, message_id
         );
 
         Ok(Some(BridgedEvent::MessageCreate {
@@ -282,11 +282,11 @@ impl MatrixBridge {
             .await
             .map_err(|e| BridgeError::Database(e.to_string()))?;
 
-            info!("Bridge: ghost user updated/created for {}", ev.sender);
+            info!("Bridge: ghost user updated/created");
         } else {
             debug!(
-                "Bridge: m.room.member membership={} from {} (no action)",
-                membership, ev.sender
+                "Bridge: m.room.member membership={} (no action)",
+                membership
             );
         }
 

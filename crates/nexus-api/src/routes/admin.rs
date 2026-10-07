@@ -182,7 +182,7 @@ async fn update_user_flags(
         }
     }
 
-    tracing::info!(admin = %auth.user_id, target = %user_id,
+    tracing::info!(
         set = ?body.set_flags, clear = ?body.clear_flags, "Admin updated user flags");
 
     // Write audit log for this critical instance-level operation
@@ -239,7 +239,7 @@ async fn delete_server(
     )
     .await;
 
-    tracing::warn!(admin = %auth.user_id, server = %server_id, "Admin deleted server");
+    tracing::warn!( server = %server_id, "Admin deleted server");
     Ok(Json(serde_json::json!({ "deleted": true })))
 }
 

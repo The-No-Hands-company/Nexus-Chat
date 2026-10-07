@@ -200,7 +200,6 @@ async fn create_server(
 
     tracing::info!(
         server_id = %server_id,
-        owner = %auth.user_id,
         name = %body.name,
         "Server created"
     );
@@ -918,8 +917,6 @@ async fn transfer_ownership_route(
 
     tracing::info!(
         server_id = %server_id,
-        old_owner = %auth.user_id,
-        new_owner = %body.new_owner_id,
         "Server ownership transferred"
     );
 

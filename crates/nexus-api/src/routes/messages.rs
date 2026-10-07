@@ -187,7 +187,6 @@ async fn send_message(
                 "warn" => {
                     // Log but allow — a future gateway event could warn the client
                     tracing::debug!(
-                        user_id = %auth.user_id,
                         channel_id = %channel_id,
                         "Word filter matched (warn action)"
                     );
@@ -379,7 +378,6 @@ async fn send_message(
                 };
                 if let Err(e) = sender.notify_user(&pool, mentioned_uid, &payload).await {
                     tracing::warn!(
-                        user_id = %mentioned_uid,
                         error = %e,
                         "Push notification failed for @mention"
                     );
@@ -422,7 +420,6 @@ async fn send_message(
                     };
                     if let Err(e) = sender.notify_user(&pool, recipient_uid, &payload).await {
                         tracing::warn!(
-                            user_id = %recipient_uid,
                             error = %e,
                             "Push notification failed for DM"
                         );
@@ -478,7 +475,6 @@ async fn send_message(
                     }
                     if let Err(e) = sender.notify_user(&pool, participant_uid, &payload).await {
                         tracing::warn!(
-                            user_id = %participant_uid,
                             error = %e,
                             "Push notification failed for DM"
                         );
@@ -490,7 +486,6 @@ async fn send_message(
     tracing::debug!(
         message_id = %message_id,
         channel_id = %channel_id,
-        author = %auth.username,
         "Message sent"
     );
 
@@ -1597,7 +1592,7 @@ async fn list_messages_from_scylla(
             rows
         }
         Err(error) => {
-            tracing::debug!(%channel_id, %user_id, %error, "Scylla list read: user reactions batch lookup failed");
+            tracing::debug!(%channel_id, %error, "Scylla list read: user reactions batch lookup failed");
             metrics::counter!(
                 "nexus_scylla_read_total",
                 "kind" => "user_reactions",
@@ -1810,7 +1805,7 @@ async fn get_message_from_scylla(
             map.get(&message_id).cloned().unwrap_or_default()
         }
         Err(error) => {
-            tracing::debug!(%channel_id, %message_id, %user_id, %error, "Scylla get_message: user reaction lookup failed");
+            tracing::debug!(%channel_id, %message_id, %error, "Scylla get_message: user reaction lookup failed");
             metrics::counter!(
                 "nexus_scylla_read_total",
                 "kind" => "user_reactions_single",

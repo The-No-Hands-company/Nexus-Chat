@@ -82,7 +82,6 @@ impl VoiceRoom {
 
         tracing::info!(
             channel = %self.channel_id,
-            user = %user_id,
             "User joined voice room"
         );
 
@@ -109,7 +108,6 @@ impl VoiceRoom {
         if removed.is_some() {
             tracing::info!(
                 channel = %self.channel_id,
-                user = %user_id,
                 "User left voice room"
             );
         }

@@ -311,7 +311,7 @@ async fn run_server(
     // ── REST API ──────────────────────────────────────────────────────────────
     let email_service = nexus_api::email::EmailService::new(config.email.clone());
     if email_service.is_enabled() {
-        tracing::info!(from = %config.email.from, "email delivery enabled (Resend)");
+        tracing::info!( "email delivery enabled (Resend)");
     } else {
         tracing::info!("email delivery disabled (no NEXUS__EMAIL__API_KEY)");
     }

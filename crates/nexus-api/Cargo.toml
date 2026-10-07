@@ -49,6 +49,7 @@ scylla = { workspace = true }
 [dev-dependencies]
 criterion = { version = "0.5", features = ["html_reports"] }
 tokio = { workspace = true, features = ["rt-multi-thread"] }
+tracing-subscriber = { workspace = true }
 # Generates the throwaway RSA keypair the identity tests sign with. Present so
 # that no private key material has to live in the source of a public repo —
 # an embedded test PEM trips secret scanners forever and teaches people to wave

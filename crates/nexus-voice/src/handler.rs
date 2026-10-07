@@ -279,7 +279,6 @@ async fn handle_voice_connection(
 
                         tracing::info!(
                             session = %session_id,
-                            user = %identity.username,
                             "Voice client authenticated"
                         );
                     }
@@ -327,7 +326,6 @@ async fn handle_voice_connection(
 
                         tracing::info!(
                             session = %session_id,
-                            user = %uid,
                             channel = %channel_id,
                             "User joined voice channel"
                         );
@@ -487,7 +485,6 @@ async fn handle_voice_connection(
 
                             tracing::info!(
                                 session = %session_id,
-                                user = %uid,
                                 channel = %channel_id,
                                 "User left voice channel"
                             );

@@ -289,7 +289,7 @@ async fn update_identity(
     )
     .await;
 
-    info!("Instance federation identity updated by {}", auth.user_id);
+    info!("Instance federation identity updated");
     Ok(Json(value))
 }
 
@@ -465,8 +465,8 @@ async fn add_peer(
     .await;
 
     info!(
-        "Admin {} initiated peering with {} (latency {}ms)",
-        auth.user_id, domain, latency_ms
+        "Admin initiated peering with {} (latency {}ms)",
+        domain, latency_ms
     );
 
     Ok((
@@ -634,7 +634,7 @@ async fn block_peer(
     )
     .await;
 
-    info!("Admin {} blocked peer {}", auth.user_id, domain);
+    info!("Admin blocked peer {}", domain);
     Ok(Json(json!({ "domain": domain, "is_blocked": true })))
 }
 
@@ -697,7 +697,7 @@ async fn remove_peer(
     )
     .await;
 
-    info!("Admin {} removed peer {}", auth.user_id, domain);
+    info!("Admin removed peer {}", domain);
     Ok(StatusCode::NO_CONTENT)
 }
 

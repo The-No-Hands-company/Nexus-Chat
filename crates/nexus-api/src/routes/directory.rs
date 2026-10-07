@@ -338,8 +338,8 @@ async fn join_federated_room(
 ) -> (StatusCode, Json<Value>) {
     let room_id = body.room_id;
     info!(
-        "Federated join request for room {} by {}",
-        room_id, auth.username
+        "Federated join request for room {}",
+        room_id
     );
 
     // Parse `!channel:server_name` — extract the remote server part.

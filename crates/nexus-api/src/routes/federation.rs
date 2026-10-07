@@ -478,7 +478,7 @@ async fn process_pdu(
     // Upsert the sender's profile into federated_users (skip for local users).
     if new_event
         && let Err(e) = upsert_federated_user(pool, local_server_name, sender, pdu).await {
-            debug!("Could not upsert federated user {}: {}", sender, e);
+            debug!("Could not upsert federated user: {}", e);
         }
 
     Ok(new_event)
@@ -721,7 +721,7 @@ async fn make_join(
             .try_get::<String, _>("join_rule")
             .unwrap_or_else(|_| "public".to_string());
         if join_rule != "public" {
-            tracing::warn!(origin = %origin, room_id = %room_id, user_id = %user_id, join_rule = %join_rule, "Denied join: not public");
+            tracing::warn!(origin = %origin, room_id = %room_id, join_rule = %join_rule, "Denied join: not public");
             return (
                 StatusCode::FORBIDDEN,
                 Json(json!({"error": format!("Room has join_rule: {}", join_rule)})),
@@ -1047,19 +1047,19 @@ async fn matrix_as_transaction(
                 }
                 nexus_federation::BridgedEvent::MemberJoin {
                     matrix_room_id,
-                    mxid,
-                    display_name,
+                    mxid: _,
+                    display_name: _,
                 } => {
                     debug!(
-                        "Matrix member join: {} ({:?}) in {}",
-                        mxid, display_name, matrix_room_id
+                        "Matrix member join in {}",
+                        matrix_room_id
                     );
                 }
                 nexus_federation::BridgedEvent::MemberLeave {
                     matrix_room_id,
-                    mxid,
+                    mxid: _,
                 } => {
-                    debug!("Matrix member leave: {} in {}", mxid, matrix_room_id);
+                    debug!("Matrix member leave in {}", matrix_room_id);
                 }
             }
         }
@@ -1179,7 +1179,7 @@ async fn upsert_federated_user(
     let (localpart, server) = match parse_mxid(sender) {
         Some(parts) => parts,
         None => {
-            debug!("Skipping federated user upsert: invalid MXID {}", sender);
+            debug!("Skipping federated user upsert: invalid MXID");
             return Ok(());
         }
     };
@@ -1291,8 +1291,8 @@ async fn receive_friend_request(
     };
 
     debug!(
-        "Federated friend request from {}@{} targeting local user '{}'",
-        body.requester_username, origin, body.target_username
+        "Federated friend request from {}",
+        origin
     );
 
     // Find the local target user (must be a real local account, not a shadow).
@@ -1351,8 +1351,8 @@ async fn receive_friend_request(
         Ok(u) => u,
         Err(e) => {
             warn!(
-                "Failed to upsert remote user {}@{}: {}",
-                body.requester_username, origin, e
+                "Failed to upsert remote user from {}: {}",
+                origin, e
             );
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
@@ -1394,8 +1394,8 @@ async fn receive_friend_request(
     {
         Ok(_) => {
             info!(
-                "Federated friend request stored: {}@{} → {}",
-                body.requester_username, origin, target.username
+                "Federated friend request stored from {}",
+                origin
             );
 
             // Push live notification to the target user's connected clients.

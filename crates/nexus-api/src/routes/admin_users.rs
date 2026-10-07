@@ -238,8 +238,6 @@ async fn suspend_user(
     .await;
 
     tracing::warn!(
-        admin = %auth.user_id,
-        target = %user_id,
         "Instance admin suspended user account"
     );
 
@@ -286,8 +284,6 @@ async fn unsuspend_user(
     .await;
 
     tracing::info!(
-        admin = %auth.user_id,
-        target = %user_id,
         "Instance admin unsuspended user account"
     );
 
@@ -340,8 +336,6 @@ async fn disable_user(
     .await;
 
     tracing::warn!(
-        admin = %auth.user_id,
-        target = %user_id,
         "Instance admin disabled user account"
     );
 

@@ -110,7 +110,6 @@ async fn finalise_caption(
     // Only the original speaker can finalize their caption
     if caption.speaker_id.to_string() != ctx.user_id.to_string() {
         tracing::warn!(
-            user_id = %ctx.user_id,
             caption_id = %id,
             speaker_id = %caption.speaker_id,
             "Denied caption finalization: user is not the caption author"

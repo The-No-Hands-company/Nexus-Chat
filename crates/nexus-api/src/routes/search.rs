@@ -123,7 +123,7 @@ async fn search_messages_global(
         if let Some(server_id) = channel.server_id {
             if !members::is_member(&state.db.pool, auth.user_id, server_id).await? {
                 metrics::counter!("nexus_search_requests_total", "scope" => "global", "outcome" => "forbidden").increment(1);
-                tracing::warn!(%channel_id, %server_id, user_id = %auth.user_id, "Denied global search for inaccessible channel");
+                tracing::warn!(%channel_id, %server_id, "Denied global search for inaccessible channel");
                 return Err(NexusError::Forbidden);
             }
         } else {
@@ -232,7 +232,6 @@ async fn search_server_messages(
     // Verify user is a member of the server before allowing search
     if !members::is_member(&state.db.pool, auth.user_id, server_id).await? {
         tracing::warn!(
-            user_id = %auth.user_id,
             server_id = %server_id,
             "Denied message search: user is not a member of the server"
         );
@@ -298,7 +297,6 @@ async fn search_channel_messages(
     if let Some(server_id) = channel.server_id {
         if !members::is_member(&state.db.pool, auth.user_id, server_id).await? {
             tracing::warn!(
-                user_id = %auth.user_id,
                 channel_id = %channel_id,
                 server_id = %server_id,
                 "Denied channel message search: user is not a member of the server"
@@ -319,7 +317,6 @@ async fn search_channel_messages(
 
         if !is_participant {
             tracing::warn!(
-                user_id = %auth.user_id,
                 channel_id = %channel_id,
                 "Denied DM channel search: user is not a participant"
             );
