@@ -131,11 +131,7 @@ impl PushSender {
                     gone_endpoints.push(sub.endpoint.clone());
                 }
                 Err(e) => {
-                    tracing::warn!(
-                        endpoint_prefix = %sub.endpoint.chars().take(40).collect::<String>(),
-                        error = %e,
-                        "Push notification delivery failed"
-                    );
+                    tracing::warn!(error_kind = %nexus_common::logsafe::err_kind(&e), "Push notification delivery failed");
                 }
             }
         }

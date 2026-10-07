@@ -198,11 +198,7 @@ async fn create_server(
     // Add creator as member
     members::add_member(&state.db.pool, auth.user_id, server_id).await?;
 
-    tracing::info!(
-        server_id = %server_id,
-        name = %body.name,
-        "Server created"
-    );
+    tracing::info!(server_id = %server_id, "Server created");
 
     Ok(Json(server.into()))
 }
@@ -703,12 +699,7 @@ async fn create_role_route(
     )
     .await?;
 
-    tracing::info!(
-        role_id = %role_id,
-        server_id = %server_id,
-        name = %body.name,
-        "Role created"
-    );
+    tracing::info!(role_id = %role_id, server_id = %server_id, "Role created");
 
     let _ = audit_log::write_entry(
         &state.db.pool,

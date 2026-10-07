@@ -387,7 +387,7 @@ impl SearchClient {
             .await;
 
             if let Err(e) = result {
-                tracing::error!(queue_id = row.id, error = %e, "Search sync queue error");
+                tracing::error!(queue_id = row.id, error_kind = %nexus_common::logsafe::anyhow_kind(&e), "Search sync queue error");
             } else {
                 let _ = sqlx::query("UPDATE search_sync_queue SET processed = true WHERE id = $1")
                     .bind(row.id)

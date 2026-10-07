@@ -135,7 +135,7 @@ async fn write_audit(
     .execute(pool)
     .await
     {
-        warn!("Failed to write federation audit log: {}", e);
+        warn!(error_kind = %nexus_common::logsafe::err_kind(&e), "Failed to write federation audit log");
     }
 }
 

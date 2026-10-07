@@ -164,12 +164,7 @@ async fn create_channel(
     )
     .await?;
 
-    tracing::info!(
-        channel_id = %channel_id,
-        server_id = %server_id,
-        name = %body.name,
-        "Channel created"
-    );
+    tracing::info!(channel_id = %channel_id, server_id = %server_id, "Channel created");
 
     let _ = audit_log::write_entry(
         &state.db.pool,

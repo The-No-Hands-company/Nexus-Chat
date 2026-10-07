@@ -206,7 +206,7 @@ async fn receive_transaction(
     {
         Ok(o) => o,
         Err((status, e)) => {
-            warn!("Rejected federated transaction {}: {}", txn_id, e);
+            warn!(status = %status, "Rejected federated transaction");
             return (status, Json(json!({ "error": e }))).into_response();
         }
     };
@@ -232,7 +232,7 @@ async fn receive_transaction(
             return (StatusCode::OK, Json(json!({}))).into_response();
         }
         Ok(None) => {}
-        Err(e) => warn!("Failed to query txn_log for idempotency: {}", e),
+        Err(e) => warn!(error_kind = %nexus_common::logsafe::err_kind(&e), "Failed to query txn_log for idempotency"),
     }
 
     // ── 3. Upsert origin server in federated_servers ──────────────────────────
@@ -245,7 +245,7 @@ async fn receive_transaction(
     .execute(&state.db.pool)
     .await
     {
-        warn!("Failed to upsert federated server {}: {}", origin, e);
+        warn!(origin = %origin, error_kind = %nexus_common::logsafe::err_kind(&e), "Failed to upsert federated server");
     }
 
     // ── 4. Load verify keys for the origin server ─────────────────────────────
@@ -278,7 +278,7 @@ async fn receive_transaction(
         {
             Ok(true) => accepted += 1,
             Ok(false) => debug!("PDU from {} was a duplicate (already stored)", origin),
-            Err(e) => warn!("Rejected PDU from {}: {}", origin, e),
+            Err(e) => warn!(origin = %origin, error_kind = %nexus_common::logsafe::anyhow_kind(&e), "Rejected PDU"),
         }
     }
 
@@ -301,7 +301,7 @@ async fn receive_transaction(
     .execute(&state.db.pool)
     .await
     {
-        warn!("Failed to write federation txn log: {}", e);
+        warn!(error_kind = %nexus_common::logsafe::err_kind(&e), "Failed to write federation txn log");
     }
 
     // ── 7. Real-time dispatch to local members of federated rooms ─────────────
@@ -446,10 +446,7 @@ async fn process_pdu(
     if !verify_keys.is_empty() {
         verify_pdu_signature(pdu, origin, verify_keys)?;
     } else {
-        debug!(
-            "No cached verify keys for {} — persisting PDU {} without sig check",
-            origin, event_id
-        );
+        debug!(origin = %origin, "No cached verify keys — persisting PDU without sig check");
     }
 
     // Persist (ON CONFLICT handles duplicate event IDs gracefully).
@@ -478,7 +475,7 @@ async fn process_pdu(
     // Upsert the sender's profile into federated_users (skip for local users).
     if new_event
         && let Err(e) = upsert_federated_user(pool, local_server_name, sender, pdu).await {
-            debug!("Could not upsert federated user: {}", e);
+            debug!(error_kind = %nexus_common::logsafe::anyhow_kind(&e), "Could not upsert federated user");
         }
 
     Ok(new_event)
@@ -586,7 +583,7 @@ async fn get_event(
         )
             .into_response(),
         Err(e) => {
-            warn!("Error fetching event {}: {}", event_id, e);
+            warn!(error_kind = %nexus_common::logsafe::err_kind(&e), "Error fetching event");
             (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(json!({ "error": "DB error" })),
@@ -644,12 +641,7 @@ async fn get_room_state(
             // For private/invite rooms, deny state access for now
             // (can be enhanced later with participating_servers list when using typed DB)
             if join_rule != "public" {
-                tracing::warn!(
-                    origin = %origin,
-                    room_id = %room_id,
-                    join_rule = %join_rule,
-                    "Denied room state request: origin not in participating servers"
-                );
+                tracing::warn!(origin = %origin, join_rule = %join_rule, "Denied room state request: origin not in participating servers");
                 return (
                     StatusCode::FORBIDDEN,
                     Json(json!({ "error": "Not authorized to view this room's state" })),
@@ -721,7 +713,7 @@ async fn make_join(
             .try_get::<String, _>("join_rule")
             .unwrap_or_else(|_| "public".to_string());
         if join_rule != "public" {
-            tracing::warn!(origin = %origin, room_id = %room_id, join_rule = %join_rule, "Denied join: not public");
+            tracing::warn!(origin = %origin, join_rule = %join_rule, "Denied join: not public");
             return (
                 StatusCode::FORBIDDEN,
                 Json(json!({"error": format!("Room has join_rule: {}", join_rule)})),
@@ -769,10 +761,7 @@ async fn send_join(
         Err(e) => return (StatusCode::UNAUTHORIZED, Json(json!({ "error": e }))).into_response(),
     };
 
-    info!(
-        "Processing send_join for room {} event {} from {}",
-        room_id, event_id, origin
-    );
+    info!(origin = %origin, "Processing send_join");
 
     let pool = &state.db.pool;
 
@@ -780,7 +769,7 @@ async fn send_join(
     let verify_keys = load_server_verify_keys(pool, &origin).await;
     if !verify_keys.is_empty() {
         if let Err(e) = verify_pdu_signature(&event, &origin, &verify_keys) {
-            warn!("send_join sig verify failed from {}: {}", origin, e);
+            warn!(origin = %origin, error_kind = %nexus_common::logsafe::anyhow_kind(&e), "send_join sig verify failed");
             return (
                 StatusCode::FORBIDDEN,
                 Json(json!({ "error": "invalid signature" })),
@@ -989,7 +978,7 @@ async fn matrix_as_transaction(
     let txn: nexus_federation::MatrixTransaction = match serde_json::from_value(body) {
         Ok(t) => t,
         Err(e) => {
-            warn!("matrix_as_transaction {}: parse error: {}", txn_id, e);
+            warn!(error_kind = %nexus_common::logsafe::err_kind(&e), "matrix_as_transaction: parse error");
             return (
                 StatusCode::BAD_REQUEST,
                 Json(json!({ "error": "invalid transaction body" })),
@@ -1046,20 +1035,17 @@ async fn matrix_as_transaction(
                     let _ = state.gateway_tx.send(gw);
                 }
                 nexus_federation::BridgedEvent::MemberJoin {
-                    matrix_room_id,
+                    matrix_room_id: _,
                     mxid: _,
                     display_name: _,
                 } => {
-                    debug!(
-                        "Matrix member join in {}",
-                        matrix_room_id
-                    );
+                    debug!("Matrix member join");
                 }
                 nexus_federation::BridgedEvent::MemberLeave {
-                    matrix_room_id,
+                    matrix_room_id: _,
                     mxid: _,
                 } => {
-                    debug!("Matrix member leave in {}", matrix_room_id);
+                    debug!("Matrix member leave");
                 }
             }
         }
@@ -1139,7 +1125,7 @@ async fn user_profile(
         )
             .into_response(),
         Err(e) => {
-            warn!("DB error resolving user {}: {}", localpart, e);
+            warn!(error_kind = %nexus_common::logsafe::err_kind(&e), "DB error resolving user");
             (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(json!({ "error": "DB error" })),
@@ -1285,7 +1271,7 @@ async fn receive_friend_request(
     {
         Ok(o) => o,
         Err((status, msg)) => {
-            warn!("Rejected federated friend request: {}", msg);
+            warn!(status = %status, "Rejected federated friend request");
             return (status, Json(json!({ "error": msg }))).into_response();
         }
     };
@@ -1316,7 +1302,7 @@ async fn receive_friend_request(
                     .into_response();
             }
             Err(e) => {
-                warn!("DB error looking up target user: {}", e);
+                warn!(error_kind = %nexus_common::logsafe::err_kind(&e), "DB error looking up target user");
                 return (
                     StatusCode::INTERNAL_SERVER_ERROR,
                     Json(json!({ "error": "internal error" })),
@@ -1350,10 +1336,7 @@ async fn receive_friend_request(
     {
         Ok(u) => u,
         Err(e) => {
-            warn!(
-                "Failed to upsert remote user from {}: {}",
-                origin, e
-            );
+            warn!(origin = %origin, error_kind = %nexus_common::logsafe::err_kind(&e), "Failed to upsert remote user");
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(json!({ "error": "internal error" })),
@@ -1378,7 +1361,7 @@ async fn receive_friend_request(
                 .into_response();
         }
         Ok(None) => {}
-        Err(e) => warn!("DB error checking existing relationship: {}", e),
+        Err(e) => warn!(error_kind = %nexus_common::logsafe::err_kind(&e), "DB error checking existing relationship"),
     }
 
     // Create the pending relationship (remote_user → local target).
@@ -1420,7 +1403,7 @@ async fn receive_friend_request(
             (StatusCode::OK, Json(json!({ "status": "ok" }))).into_response()
         }
         Err(e) => {
-            warn!("Failed to create federated relationship: {}", e);
+            warn!(error_kind = %nexus_common::logsafe::err_kind(&e), "Failed to create federated relationship");
             (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(json!({ "error": "internal error" })),
@@ -1460,15 +1443,12 @@ async fn receive_friend_request_response(
     {
         Ok(o) => o,
         Err((status, msg)) => {
-            warn!("Rejected federated friend response: {}", msg);
+            warn!(status = %status, "Rejected federated friend response");
             return (status, Json(json!({ "error": msg }))).into_response();
         }
     };
 
-    debug!(
-        "Federated friend response from {}@{}: action={}",
-        body.responder_username, origin, body.action
-    );
+    debug!(action = %body.action, "Federated friend response received");
 
     if !matches!(body.action.as_str(), "accepted" | "denied") {
         return (
@@ -1529,7 +1509,7 @@ async fn receive_friend_request_response(
                 .into_response();
         }
         Err(e) => {
-            warn!("DB error looking up relationship: {}", e);
+            warn!(error_kind = %nexus_common::logsafe::err_kind(&e), "DB error looking up relationship");
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(json!({ "error": "internal error" })),
@@ -1549,17 +1529,14 @@ async fn receive_friend_request_response(
             )
             .await
             {
-                warn!("Failed to accept federated friendship: {}", e);
+                warn!(error_kind = %nexus_common::logsafe::err_kind(&e), "Failed to accept federated friendship");
                 return (
                     StatusCode::INTERNAL_SERVER_ERROR,
                     Json(json!({ "error": "internal error" })),
                 )
                     .into_response();
             }
-            info!(
-                "Federated friendship accepted: {} ↔ {}@{}",
-                requester_id, body.responder_username, origin
-            );
+            info!("Federated friendship accepted");
             // Notify the requester's connected clients that their friend request was accepted.
             let _ = state.gateway_tx.send(GatewayEvent {
                 event_type: event_types::RELATIONSHIP_UPDATE.into(),
@@ -1582,12 +1559,9 @@ async fn receive_friend_request_response(
             if let Err(e) =
                 nexus_db::repository::relationships::delete(&state.db.pool, rel.id).await
             {
-                warn!("Failed to remove denied federated relationship: {}", e);
+                warn!(error_kind = %nexus_common::logsafe::err_kind(&e), "Failed to remove denied federated relationship");
             }
-            info!(
-                "Federated friend request denied: {} from {}@{}",
-                requester_id, body.responder_username, origin
-            );
+            info!("Federated friend request denied");
             // Notify the requester that the request was denied so their pending list updates live.
             let _ = state.gateway_tx.send(GatewayEvent {
                 event_type: event_types::RELATIONSHIP_UPDATE.into(),
@@ -1709,7 +1683,7 @@ async fn verify_inbound_request(
                 }
             }
             Err(e) => {
-                warn!("Could not fetch signing keys for {}: {}", origin, e);
+                warn!(origin = %origin, error_kind = %nexus_common::logsafe::err_kind(&e), "Could not fetch signing keys");
                 return Err((
                     StatusCode::UNAUTHORIZED,
                     format!("Cannot retrieve server keys for '{}': {}", origin, e),

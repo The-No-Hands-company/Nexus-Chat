@@ -22,7 +22,7 @@ pub fn spawn_import_worker(pool: AnyPool, mut shutdown_rx: broadcast::Receiver<(
                     let pending = match import_jobs::list_pending_import_jobs(&pool, 20).await {
                         Ok(rows) => rows,
                         Err(e) => {
-                            tracing::warn!(error = %e, subsystem = "imports", "failed to list pending import jobs");
+                            tracing::warn!(error_kind = %nexus_common::logsafe::err_kind(&e), subsystem = "imports", "failed to list pending import jobs");
                             continue;
                         }
                     };
@@ -31,7 +31,7 @@ pub fn spawn_import_worker(pool: AnyPool, mut shutdown_rx: broadcast::Receiver<(
                         let claimed = match import_jobs::try_claim_import_job(&pool, job.id).await {
                             Ok(v) => v,
                             Err(e) => {
-                                tracing::warn!(error = %e, job_id = %job.id, subsystem = "imports", "failed to claim import job");
+                                tracing::warn!(error_kind = %nexus_common::logsafe::err_kind(&e), job_id = %job.id, subsystem = "imports", "failed to claim import job");
                                 continue;
                             }
                         };
@@ -43,7 +43,7 @@ pub fn spawn_import_worker(pool: AnyPool, mut shutdown_rx: broadcast::Receiver<(
                             Ok((imported, total)) => {
                                 if let Err(e) = import_jobs::mark_import_completed(&pool, job.id, imported, total).await {
                                     tracing::warn!(
-                                        error = %e,
+                                        error_kind = %nexus_common::logsafe::err_kind(&e),
                                         job_id = %job.id,
                                         imported,
                                         total,
@@ -65,22 +65,13 @@ pub fn spawn_import_worker(pool: AnyPool, mut shutdown_rx: broadcast::Receiver<(
                             Err((message, imported, total)) => {
                                 if let Err(e) = import_jobs::mark_import_failed(&pool, job.id, imported, total, &message).await {
                                     tracing::warn!(
-                                        error = %e,
+                                        error_kind = %nexus_common::logsafe::err_kind(&e),
                                         job_id = %job.id,
                                         subsystem = "imports",
                                         "failed to mark import job failed"
                                     );
                                 } else {
-                                    tracing::warn!(
-                                        job_id = %job.id,
-                                        server_id = %job.server_id,
-                                        source = %job.source_platform,
-                                        imported,
-                                        total,
-                                        error = %message,
-                                        subsystem = "imports",
-                                        "import job failed"
-                                    );
+                                    tracing::warn!(job_id = %job.id, server_id = %job.server_id, source = %job.source_platform, imported, total, subsystem = "imports", "import job failed");
                                 }
                             }
                         }

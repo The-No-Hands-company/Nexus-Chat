@@ -338,7 +338,7 @@ async fn run_server(
                     (Some(sender), Some(pub_key))
                 }
                 Err(e) => {
-                    tracing::warn!(subsystem = "push", error = %e, "Invalid VAPID key — push disabled");
+                    tracing::warn!(subsystem = "push", error_kind = %nexus_common::logsafe::anyhow_kind(&e), "Invalid VAPID key — push disabled");
                     (None, None)
                 }
             }
@@ -518,7 +518,7 @@ async fn run_server(
                                     sink = Some(s);
                                 }
                                 Err(e) => {
-                                    tracing::warn!(error = %e, subsystem = "scylla_outbox", "failed to connect Scylla sink");
+                                    tracing::warn!(error_kind = %nexus_common::logsafe::anyhow_kind(&e), subsystem = "scylla_outbox", "failed to connect Scylla sink");
                                     continue;
                                 }
                             }
@@ -527,7 +527,7 @@ async fn run_server(
                         let jobs = match nexus_db::repository::scylla_outbox::claim_pending_jobs(&pool, 100).await {
                             Ok(j) => j,
                             Err(e) => {
-                                tracing::warn!(error = %e, subsystem = "scylla_outbox", "failed to claim outbox jobs");
+                                tracing::warn!(error_kind = %nexus_common::logsafe::err_kind(&e), subsystem = "scylla_outbox", "failed to claim outbox jobs");
                                 continue;
                             }
                         };
@@ -572,18 +572,17 @@ async fn run_server(
                             match process_result {
                                 Ok(()) => {
                                     if let Err(e) = nexus_db::repository::scylla_outbox::mark_job_completed(&pool, job.id).await {
-                                        tracing::warn!(error = %e, job_id = job.id, subsystem = "scylla_outbox", "failed to mark outbox job completed");
+                                        tracing::warn!(error_kind = %nexus_common::logsafe::err_kind(&e), job_id = job.id, subsystem = "scylla_outbox", "failed to mark outbox job completed");
                                     }
                                 }
                                 Err(err) => {
                                     if let Err(e) = nexus_db::repository::scylla_outbox::mark_job_failed(&pool, job.id, &err).await {
-                                        tracing::warn!(error = %e, job_id = job.id, subsystem = "scylla_outbox", "failed to mark outbox job failed");
+                                        tracing::warn!(error_kind = %nexus_common::logsafe::err_kind(&e), job_id = job.id, subsystem = "scylla_outbox", "failed to mark outbox job failed");
                                     } else {
                                         tracing::warn!(
                                             job_id = job.id,
                                             message_id = %job.message_id,
                                             attempts = job.attempt_count,
-                                            error = %err,
                                             subsystem = "scylla_outbox",
                                             "outbox job processing failed"
                                         );
@@ -619,7 +618,7 @@ async fn run_server(
                                 count = n, subsystem = "moderation", "lifted expired timeouts"
                             ),
                             Err(e) => tracing::warn!(
-                                error = %e, subsystem = "moderation", "failed to purge expired timeouts"
+                                error_kind = %nexus_common::logsafe::err_kind(&e), subsystem = "moderation", "failed to purge expired timeouts"
                             ),
                             _ => {}
                         }
@@ -628,7 +627,7 @@ async fn run_server(
                                 count = n, subsystem = "moderation", "purged expired bans"
                             ),
                             Err(e) => tracing::warn!(
-                                error = %e, subsystem = "moderation", "failed to purge expired bans"
+                                error_kind = %nexus_common::logsafe::err_kind(&e), subsystem = "moderation", "failed to purge expired bans"
                             ),
                             _ => {}
                         }
@@ -660,7 +659,7 @@ async fn run_server(
                                 "purged due scheduled account deletions"
                             ),
                             Err(e) => tracing::warn!(
-                                error = %e,
+                                error_kind = %nexus_common::logsafe::err_kind(&e),
                                 subsystem = "account_deletion",
                                 "failed to purge scheduled account deletions"
                             ),
@@ -765,7 +764,7 @@ async fn run_server(
                             .execute(&pool)
                             .await;
                             if let Err(e) = insert_res {
-                                tracing::warn!(error = %e, sm_id = %sm.id, "Failed to dispatch scheduled message");
+                                tracing::warn!(error_kind = %nexus_common::logsafe::err_kind(&e), sm_id = %sm.id, "Failed to dispatch scheduled message");
                                 continue;
                             }
 
@@ -785,7 +784,7 @@ async fn run_server(
                             };
 
                             if let Err(e) = search.sync_message_index(&pool, msg_id, doc.clone()).await {
-                                tracing::warn!(error = %e, sm_id = %sm.id, "failed to index dispatched scheduled message");
+                                tracing::warn!(error_kind = %nexus_common::logsafe::anyhow_kind(&e), sm_id = %sm.id, "failed to index dispatched scheduled message");
                             }
 
                             if scylla_enabled {
@@ -872,7 +871,7 @@ async fn run_server(
                             }
                             Ok(_) => {}
                             Err(e) => tracing::warn!(
-                                error = %e, subsystem = "disappearing_messages",
+                                error_kind = %nexus_common::logsafe::err_kind(&e), subsystem = "disappearing_messages",
                                 "failed to purge expired messages"
                             ),
                         }

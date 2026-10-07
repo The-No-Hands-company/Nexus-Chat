@@ -240,7 +240,7 @@ impl FederationClient {
         let base_url = self.discovery.resolve(destination).await?;
         // Key fetch is unauthenticated (like Matrix).
         let url = format!("{}{}", base_url, "/_nexus/key/v2/server");
-        debug!("Fetching server keys from {}", url);
+        debug!(destination = %destination, "Fetching server keys");
         let resp = self
             .http
             .get(&url)
@@ -271,7 +271,7 @@ impl FederationClient {
     ) -> Result<(u64, crate::types::RichWellKnownServer), FederationError> {
         let base_url = self.discovery.resolve(destination).await?;
         let url = format!("{base_url}/.well-known/nexus/server");
-        debug!("Pinging {} via {}", destination, url);
+        debug!(destination = %destination, "Pinging");
 
         let start = std::time::Instant::now();
         let resp = self
@@ -371,7 +371,7 @@ impl FederationClient {
             None,
         );
         let url = format!("{base_url}{uri}");
-        debug!("Federation GET {}", url);
+        debug!(destination = %destination, "Federation GET");
         let resp = self
             .http
             .get(&url)
@@ -399,7 +399,7 @@ impl FederationClient {
             Some(body),
         );
         let url = format!("{base_url}{uri}");
-        debug!("Federation PUT {}", url);
+        debug!(destination = %destination, "Federation PUT");
         let resp = self
             .http
             .put(&url)

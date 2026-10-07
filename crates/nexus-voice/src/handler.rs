@@ -180,7 +180,7 @@ async fn ws_handler(
     let claims = match nexus_common::identity::verify_header(&headers, &config.server.name).await {
         Ok(claims) => claims,
         Err(e) => {
-            tracing::debug!(error = %e, "Voice: rejected upgrade, no valid identity");
+            tracing::debug!(error_kind = %nexus_common::logsafe::err_kind(&e), "Voice: rejected upgrade, no valid identity");
             return (axum::http::StatusCode::UNAUTHORIZED, "unauthorized").into_response();
         }
     };
@@ -195,7 +195,7 @@ async fn ws_handler(
     {
         Ok(id) => id,
         Err(e) => {
-            tracing::error!(error = %e, "Voice: failed to provision user from identity");
+            tracing::error!(error_kind = %nexus_common::logsafe::err_kind(&e), "Voice: failed to provision user from identity");
             return (
                 axum::http::StatusCode::INTERNAL_SERVER_ERROR,
                 "provisioning failed",

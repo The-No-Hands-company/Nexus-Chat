@@ -117,10 +117,7 @@ async fn subscribe(
     .await
     .map_err(|e| NexusError::Internal(e.into()))?;
 
-    tracing::info!(
-        endpoint_prefix = %body.endpoint.chars().take(40).collect::<String>(),
-        "Push subscription registered"
-    );
+    tracing::info!("Push subscription registered");
 
     Ok(Json(serde_json::json!({ "subscribed": true })))
 }

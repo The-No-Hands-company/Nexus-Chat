@@ -45,7 +45,7 @@ pub async fn register_with_cloud(public_url: &str, cloud_url: &str, api_key: &st
         }
         Err(e) => {
             tracing::warn!(
-                error = %e,
+                error_kind = %nexus_common::logsafe::err_kind(&e),
                 cloud_url,
                 "[nexus-cloud] Could not reach Nexus Cloud \u{2014} continuing without registration"
             );
@@ -68,6 +68,6 @@ pub async fn send_heartbeat(cloud_url: &str, api_key: &str, public_url: &str) {
         .send()
         .await
     {
-        tracing::debug!(error = %e, "[nexus-cloud] Heartbeat failed (will retry)");
+        tracing::debug!(error_kind = %nexus_common::logsafe::err_kind(&e), "[nexus-cloud] Heartbeat failed (will retry)");
     }
 }

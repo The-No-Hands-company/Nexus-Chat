@@ -346,7 +346,7 @@ pub async fn check_rate_limit_with_fallback(
                 return Err(NexusError::RateLimited { retry_after_ms });
             }
             Err(err) => {
-                tracing::warn!(error = %err, "redis rate limiter failed; falling back to local limiter");
+                tracing::warn!(error_kind = %nexus_common::logsafe::err_kind(&err), "redis rate limiter failed; falling back to local limiter");
                 metrics::counter!(
                     "nexus_rate_limit_decisions_total",
                     "backend" => "redis",
@@ -629,7 +629,7 @@ async fn identity_context(
     let claims = nexus_common::identity::verify_header(headers, &config.server.name)
         .await
         .map_err(|e| {
-            tracing::debug!(error = %e, "rejected identity token");
+            tracing::debug!(error_kind = %nexus_common::logsafe::err_kind(&e), "rejected identity token");
             NexusError::Unauthorized
         })?;
 
@@ -641,7 +641,7 @@ async fn identity_context(
     )
     .await
     .map_err(|e| {
-        tracing::error!(error = %e, "failed to provision user from identity");
+        tracing::error!(error_kind = %nexus_common::logsafe::err_kind(&e), "failed to provision user from identity");
         NexusError::Database(e)
     })?;
 

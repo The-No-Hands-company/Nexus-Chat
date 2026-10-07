@@ -567,7 +567,7 @@ async fn submit_plugin_for_review(
         )
         .await
         {
-            tracing::warn!(%plugin_id, %error, "background security scan pipeline failed");
+            tracing::warn!(%plugin_id, "background security scan pipeline failed");
         }
     });
 
@@ -1341,7 +1341,7 @@ async fn run_security_scan_pipeline(
     });
 
     if let Err(error) = marketplace::mark_security_scan(pool, plugin_id, &scan_payload).await {
-        tracing::warn!(%plugin_id, ?error, "failed to persist scan result");
+        tracing::warn!(%plugin_id, error_kind = %nexus_common::logsafe::err_kind(&error), "failed to persist scan result");
     }
 
     let is_critical = scan_result.threat_level == "critical" && !scan_result.issues.is_empty();

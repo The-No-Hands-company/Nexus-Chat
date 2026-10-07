@@ -254,7 +254,7 @@ async fn run_sfu_room(
                             Err(e) => {
                                 tracing::error!(
                                     channel = %channel_id, peer = %peer_id,
-                                    error = %e, "Failed to create peer"
+                                    error_kind = %nexus_common::logsafe::err_kind(&e), "Failed to create peer"
                                 );
                                 let _ = reply.send(SfuResponse::Error(e.to_string())).await;
                             }
@@ -284,7 +284,7 @@ async fn run_sfu_room(
                         if let Some(peer) = peers.get_mut(&peer_id) {
                             match Candidate::from_sdp_string(&candidate) {
                                 Ok(cand) => { peer.rtc.add_remote_candidate(cand); }
-                                Err(e) => tracing::warn!(peer = %peer_id, error = ?e, "Bad ICE candidate"),
+                                Err(e) => tracing::warn!(peer = %peer_id, error_kind = %nexus_common::logsafe::err_kind(&e), "Bad ICE candidate"),
                             }
                         }
                     }
@@ -333,7 +333,7 @@ async fn run_sfu_room(
                 if let Some(peer) = peers.get_mut(&peer_id) {
                     let now = Instant::now();
                     match DatagramRecv::try_from(data.as_slice()) {
-                        Err(e) => tracing::warn!(peer = %peer_id, error = ?e, "DatagramRecv parse error"),
+                        Err(e) => tracing::warn!(peer = %peer_id, error_kind = %nexus_common::logsafe::err_kind(&e), "DatagramRecv parse error"),
                         Ok(contents) => {
                             let recv = NetReceive {
                                 proto: str0m::net::Protocol::Udp,
@@ -342,7 +342,7 @@ async fn run_sfu_room(
                                 contents,
                             };
                             match peer.rtc.handle_input(Input::Receive(now, recv)) {
-                                Err(e) => tracing::warn!(peer = %peer_id, error = %e, "RTC input error"),
+                                Err(e) => tracing::warn!(peer = %peer_id, error_kind = %nexus_common::logsafe::err_kind(&e), "RTC input error"),
                                 Ok(()) => drain_rtc(peer, &mut media_events).await,
                             }
                         }
@@ -360,7 +360,7 @@ async fn run_sfu_room(
 
                 for (pid, peer) in peers.iter_mut() {
                     if let Err(e) = peer.rtc.handle_input(Input::Timeout(now)) {
-                        tracing::warn!(peer = %pid, error = %e, "RTC timeout input error; removing peer");
+                        tracing::warn!(peer = %pid, error_kind = %nexus_common::logsafe::err_kind(&e), "RTC timeout input error; removing peer");
                         dead_peers.push(*pid);
                         continue;
                     }
@@ -399,12 +399,7 @@ async fn drain_rtc(peer: &mut ActivePeer, out: &mut Vec<MediaData>) {
             Ok(Output::Timeout(_)) => break,
             Ok(Output::Transmit(tx)) => {
                 if let Err(e) = peer.socket.send_to(&tx.contents, tx.destination).await {
-                    tracing::warn!(
-                        peer = %peer.peer_id,
-                        dest = %tx.destination,
-                        error = %e,
-                        "UDP send error"
-                    );
+                    tracing::warn!(peer = %peer.peer_id, error_kind = %nexus_common::logsafe::err_kind(&e), "UDP send error");
                 }
             }
             Ok(Output::Event(event)) => match event {
@@ -436,7 +431,7 @@ async fn drain_rtc(peer: &mut ActivePeer, out: &mut Vec<MediaData>) {
                 }
             },
             Err(e) => {
-                tracing::error!(peer = %peer.peer_id, error = %e, "RTC poll_output error");
+                tracing::error!(peer = %peer.peer_id, error_kind = %nexus_common::logsafe::err_kind(&e), "RTC poll_output error");
                 break;
             }
         }
@@ -476,7 +471,7 @@ async fn forward_media(
                 tracing::warn!(
                     dest_peer = %dest_peer_id,
                     fwd_mid = ?fwd_mid,
-                    error = %e,
+                    error_kind = %nexus_common::logsafe::err_kind(&e),
                     "Failed to forward media"
                 );
             }
@@ -597,7 +592,7 @@ async fn create_peer(
                     }
                 }
                 Err(e) => {
-                    tracing::warn!(peer = %peer_id, error = %e, "UDP recv error; peer loop exiting");
+                    tracing::warn!(peer = %peer_id, error_kind = %nexus_common::logsafe::err_kind(&e), "UDP recv error; peer loop exiting");
                     break;
                 }
             }

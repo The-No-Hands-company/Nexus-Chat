@@ -202,15 +202,15 @@ async fn inline_query(
                         suggestions,
                     }),
                     Err(e) => {
-                        tracing::warn!("Bot {bot_id} returned invalid inline suggestions: {e}");
+                        tracing::warn!(error_kind = %nexus_common::logsafe::err_kind(&e), "Bot returned invalid inline suggestions");
                     }
                 }
             }
             Ok(resp) => {
-                tracing::warn!("Bot {bot_id} inline query returned HTTP {}", resp.status());
+                tracing::warn!(status = %resp.status(), "Bot inline query returned non-success HTTP status");
             }
             Err(e) => {
-                tracing::warn!("Bot {bot_id} inline query failed: {e}");
+                tracing::warn!(error_kind = %nexus_common::logsafe::err_kind(&e), "Bot inline query failed");
             }
         }
     }

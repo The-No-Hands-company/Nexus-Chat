@@ -9,6 +9,7 @@ pub mod config;
 pub mod crypto;
 pub mod error;
 pub mod identity;
+pub mod logsafe;
 pub mod gateway_event;
 pub mod models;
 pub mod module_gating;

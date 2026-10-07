@@ -209,7 +209,7 @@ impl Database {
             .execute(&self.pool)
             .await
         {
-            tracing::warn!(error = %err, "failed to release postgres migration advisory lock");
+            tracing::warn!(error_kind = %nexus_common::logsafe::err_kind(&err), "failed to release postgres migration advisory lock");
         }
 
         migrate_result?;

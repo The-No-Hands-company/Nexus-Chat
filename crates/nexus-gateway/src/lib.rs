@@ -191,7 +191,7 @@ fn setup_redis_fanout_bridge(state: &GatewayState) {
             let client = match redis::Client::open(redis_url.as_str()) {
                 Ok(c) => c,
                 Err(e) => {
-                    tracing::warn!(error = %e, "gateway redis fanout: invalid redis url");
+                    tracing::warn!(error_kind = %nexus_common::logsafe::err_kind(&e), "gateway redis fanout: invalid redis url");
                     return;
                 }
             };
@@ -200,7 +200,7 @@ fn setup_redis_fanout_bridge(state: &GatewayState) {
                 match client.get_async_pubsub().await {
                     Ok(mut pubsub) => {
                         if let Err(e) = pubsub.subscribe(&channel).await {
-                            tracing::warn!(error = %e, "gateway redis fanout: subscribe failed");
+                            tracing::warn!(error_kind = %nexus_common::logsafe::err_kind(&e), "gateway redis fanout: subscribe failed");
                             tokio::time::sleep(Duration::from_secs(2)).await;
                             continue;
                         }
@@ -238,7 +238,7 @@ fn setup_redis_fanout_bridge(state: &GatewayState) {
                         }
                     }
                     Err(e) => {
-                        tracing::warn!(error = %e, "gateway redis fanout: pubsub connect failed");
+                        tracing::warn!(error_kind = %nexus_common::logsafe::err_kind(&e), "gateway redis fanout: pubsub connect failed");
                     }
                 }
 
@@ -259,7 +259,7 @@ fn setup_redis_fanout_bridge(state: &GatewayState) {
             let client = match redis::Client::open(redis_url.as_str()) {
                 Ok(c) => c,
                 Err(e) => {
-                    tracing::warn!(error = %e, "gateway redis fanout publisher: invalid redis url");
+                    tracing::warn!(error_kind = %nexus_common::logsafe::err_kind(&e), "gateway redis fanout publisher: invalid redis url");
                     return;
                 }
             };
@@ -306,11 +306,11 @@ fn setup_redis_fanout_bridge(state: &GatewayState) {
                         let publish_res: redis::RedisResult<i64> =
                             conn.publish(&channel, payload).await;
                         if let Err(e) = publish_res {
-                            tracing::warn!(error = %e, "gateway redis fanout: publish failed");
+                            tracing::warn!(error_kind = %nexus_common::logsafe::err_kind(&e), "gateway redis fanout: publish failed");
                         }
                     }
                     Err(e) => {
-                        tracing::warn!(error = %e, "gateway redis fanout: publisher connect failed");
+                        tracing::warn!(error_kind = %nexus_common::logsafe::err_kind(&e), "gateway redis fanout: publisher connect failed");
                         tokio::time::sleep(Duration::from_millis(500)).await;
                     }
                 }
@@ -341,7 +341,7 @@ async fn ws_handler(
     let claims = match nexus_common::identity::verify_header(&headers, &config.server.name).await {
         Ok(claims) => claims,
         Err(e) => {
-            tracing::debug!(error = %e, "Gateway: rejected upgrade, no valid identity");
+            tracing::debug!(error_kind = %nexus_common::logsafe::err_kind(&e), "Gateway: rejected upgrade, no valid identity");
             return (axum::http::StatusCode::UNAUTHORIZED, "unauthorized").into_response();
         }
     };
@@ -356,7 +356,7 @@ async fn ws_handler(
     {
         Ok(id) => id,
         Err(e) => {
-            tracing::error!(error = %e, "Gateway: failed to provision user from identity");
+            tracing::error!(error_kind = %nexus_common::logsafe::err_kind(&e), "Gateway: failed to provision user from identity");
             return (
                 axum::http::StatusCode::INTERNAL_SERVER_ERROR,
                 "provisioning failed",
@@ -676,12 +676,7 @@ async fn handle_connection(socket: WebSocket, state: Arc<GatewayState>, identity
 
                                 let _ = direct_tx.send(ready).await;
 
-                                tracing::info!(
-                                    session = %session_id,
-                                    bot = %bot.name,
-                                    bot_id = %bot_id,
-                                    "Bot gateway READY sent"
-                                );
+                                tracing::info!(session = %session_id, "Bot gateway READY sent");
                             }
                             _ => {
                                 let _ = direct_tx

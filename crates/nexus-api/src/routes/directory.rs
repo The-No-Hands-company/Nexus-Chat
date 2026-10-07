@@ -139,7 +139,7 @@ async fn list_servers(
             })
             .collect(),
         Err(e) => {
-            warn!("Failed to list directory servers: {}", e);
+            warn!(error_kind = %nexus_common::logsafe::err_kind(&e), "Failed to list directory servers");
             vec![]
         }
     };
@@ -202,7 +202,7 @@ async fn list_rooms(
             })
             .collect(),
         Err(e) => {
-            warn!("Failed to list federated rooms: {}", e);
+            warn!(error_kind = %nexus_common::logsafe::err_kind(&e), "Failed to list federated rooms");
             vec![]
         }
     };
@@ -271,7 +271,7 @@ async fn search_rooms(
             })
             .collect(),
         Err(e) => {
-            warn!("Failed to search federated rooms: {}", e);
+            warn!(error_kind = %nexus_common::logsafe::err_kind(&e), "Failed to search federated rooms");
             vec![]
         }
     };
@@ -337,10 +337,7 @@ async fn join_federated_room(
     Json(body): Json<JoinRoomRequest>,
 ) -> (StatusCode, Json<Value>) {
     let room_id = body.room_id;
-    info!(
-        "Federated join request for room {}",
-        room_id
-    );
+    info!("Federated join request received");
 
     // Parse `!channel:server_name` — extract the remote server part.
     let remote_server = match room_id.split(':').nth(1) {
@@ -376,10 +373,7 @@ async fn join_federated_room(
     {
         Ok(r) => r,
         Err(e) => {
-            warn!(
-                "make_join failed for {} on {}: {}",
-                room_id, remote_server, e
-            );
+            warn!(error_kind = %nexus_common::logsafe::err_kind(&e), "make_join failed");
             return (
                 StatusCode::BAD_GATEWAY,
                 Json(json!({ "error": format!("make_join failed: {}", e) })),
@@ -399,7 +393,7 @@ async fn join_federated_room(
     if let Err(e) =
         nexus_federation::sign_event(&state.federation_key, &state.server_name, &mut join_event)
     {
-        warn!("Failed to sign join event for {}: {}", room_id, e);
+        warn!(error_kind = %nexus_common::logsafe::err_kind(&e), "Failed to sign join event");
         return (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(json!({ "error": "Failed to sign join event" })),
@@ -415,11 +409,7 @@ async fn join_federated_room(
         .await
     {
         Ok(resp) => {
-            info!(
-                "Successfully joined federated room {} ({} state events)",
-                room_id,
-                resp.state.len()
-            );
+            info!(state_events = resp.state.len(), "Successfully joined federated room");
 
             // Track local user membership so they receive real-time PDU events.
             if let Err(e) = sqlx::query(
@@ -432,10 +422,7 @@ async fn join_federated_room(
             .execute(&state.db.pool)
             .await
             {
-                warn!(
-                    "Failed to track federated room membership for {}: {}",
-                    room_id, e
-                );
+                warn!(error_kind = %nexus_common::logsafe::err_kind(&e), "Failed to track federated room membership");
             }
 
             (
@@ -449,10 +436,7 @@ async fn join_federated_room(
             )
         }
         Err(e) => {
-            warn!(
-                "send_join failed for {} on {}: {}",
-                room_id, remote_server, e
-            );
+            warn!(error_kind = %nexus_common::logsafe::err_kind(&e), "send_join failed");
             (
                 StatusCode::BAD_GATEWAY,
                 Json(json!({ "error": format!("send_join failed: {}", e) })),

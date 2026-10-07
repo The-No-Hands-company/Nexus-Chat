@@ -349,12 +349,7 @@ async fn send_federated_friend_request(
         .send_friend_request_to_remote(target_server, &fed_req)
         .await
     {
-        tracing::warn!(
-            "Failed to deliver federated friend request to {}: {}. \
-             Relationship stored locally — will sync on next contact.",
-            target_server,
-            e
-        );
+        tracing::warn!(error_kind = %nexus_common::logsafe::err_kind(&e), "Failed to deliver federated friend request; relationship stored locally, will sync on next contact");
     }
 
     let username_qualified = qualified_username(remote_username, Some(target_server));
@@ -501,12 +496,7 @@ async fn maybe_forward_friend_response(
         .respond_to_remote_friend_request(server_name, &fed_resp)
         .await
     {
-        tracing::warn!(
-            "Failed to forward friend {} response to {}: {}",
-            action,
-            server_name,
-            e
-        );
+        tracing::warn!(action = %action, error_kind = %nexus_common::logsafe::err_kind(&e), "Failed to forward friend response");
     }
 }
 

@@ -30,7 +30,7 @@ async fn serve_file(State(state): State<Arc<AppState>>, Path(key): Path<String>)
             .unwrap(),
         Ok(None) => StatusCode::NOT_FOUND.into_response(),
         Err(e) => {
-            tracing::error!(key, error = %e, "Failed to serve local file");
+            tracing::error!(error_kind = %nexus_common::logsafe::anyhow_kind(&e), "Failed to serve local file");
             StatusCode::INTERNAL_SERVER_ERROR.into_response()
         }
     }

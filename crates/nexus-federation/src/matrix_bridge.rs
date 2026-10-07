@@ -148,16 +148,12 @@ impl MatrixBridge {
                     Ok(Some(bridged)) => out.push(bridged),
                     Ok(None) => {}
                     Err(e) => {
-                        warn!(
-                            "Bridge: failed to handle m.room.message {}: {}",
-                            ev.event_id.as_deref().unwrap_or("?"),
-                            e
-                        );
+                        warn!(error_kind = %nexus_common::logsafe::err_kind(&e), "Bridge: failed to handle m.room.message");
                     }
                 },
                 "m.room.member" => {
                     if let Err(e) = self.handle_matrix_member(pool, &ev).await {
-                        warn!("Bridge: failed to handle m.room.member: {}", e);
+                        warn!(error_kind = %nexus_common::logsafe::err_kind(&e), "Bridge: failed to handle m.room.member");
                     }
                 }
                 other => {
@@ -199,7 +195,7 @@ impl MatrixBridge {
             .map_err(|e| BridgeError::Database(e.to_string()))?;
 
         let Some(mapping) = mapping else {
-            debug!("Bridge: no channel mapped for room {}", ev.room_id);
+            debug!("Bridge: no channel mapped for room");
             return Ok(None);
         };
 
@@ -236,10 +232,7 @@ impl MatrixBridge {
         .await
         .map_err(|e| BridgeError::Database(e.to_string()))?;
 
-        info!(
-            "Bridge: Matrix message in {} → nexus channel {} (msg {})",
-            ev.room_id, channel_id, message_id
-        );
+        info!(channel_id = %channel_id, message_id = %message_id, "Bridge: Matrix message relayed to nexus channel");
 
         Ok(Some(BridgedEvent::MessageCreate {
             nexus_channel_id: channel_id,
@@ -381,10 +374,7 @@ impl MatrixBridge {
             return Err(BridgeError::HomeserverError(status.as_u16(), body));
         }
 
-        info!(
-            "Bridge: relayed message {} to Matrix room {}",
-            txn_id, room_id
-        );
+        info!("Bridge: relayed message to Matrix room");
         Ok(())
     }
 
@@ -417,7 +407,7 @@ impl MatrixBridge {
             return Err(BridgeError::HomeserverError(status.as_u16(), body));
         }
 
-        info!("Bridge: created room alias {} → {}", alias, room_id);
+        info!("Bridge: created room alias");
         Ok(())
     }
 

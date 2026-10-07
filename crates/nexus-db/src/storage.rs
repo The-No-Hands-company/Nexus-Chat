@@ -216,7 +216,7 @@ impl StorageClient {
                     || safe_key.split('/').any(|seg| seg == ".." || seg == ".")
                     || safe_key.contains('\\')
                 {
-                    tracing::warn!(key, "Path traversal attempt blocked");
+                    tracing::warn!("Path traversal attempt blocked");
                     return Ok(None);
                 }
 
@@ -234,12 +234,7 @@ impl StorageClient {
                     Err(_) => return Ok(None), // file doesn't exist
                 };
                 if !canon_candidate.starts_with(&canon_dir) {
-                    tracing::error!(
-                        key,
-                        candidate = %canon_candidate.display(),
-                        root = %canon_dir.display(),
-                        "Path traversal: resolved path escapes data directory"
-                    );
+                    tracing::error!("Path traversal: resolved path escapes data directory");
                     return Ok(None);
                 }
 

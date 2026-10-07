@@ -109,11 +109,7 @@ async fn finalise_caption(
 
     // Only the original speaker can finalize their caption
     if caption.speaker_id.to_string() != ctx.user_id.to_string() {
-        tracing::warn!(
-            caption_id = %id,
-            speaker_id = %caption.speaker_id,
-            "Denied caption finalization: user is not the caption author"
-        );
+        tracing::warn!(caption_id = %id, "Denied caption finalization: user is not the caption author");
         metrics::counter!("nexus_voice_captions_requests_total", "route" => "finalise", "outcome" => "forbidden_not_author").increment(1);
         return Err(NexusError::Forbidden);
     }

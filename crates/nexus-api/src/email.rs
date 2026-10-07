@@ -13,6 +13,7 @@ use serde::Serialize;
 pub struct EmailService {
     client: reqwest::Client,
     config: EmailConfig,
+    endpoint: String,
 }
 
 #[derive(Serialize)]
@@ -28,6 +29,7 @@ impl EmailService {
         Self {
             client: reqwest::Client::new(),
             config,
+            endpoint: "https://api.resend.com/emails".to_owned(),
         }
     }
 
@@ -40,7 +42,7 @@ impl EmailService {
     /// If email is not configured, this is a no-op that returns `Ok(())`.
     async fn send(&self, to: &str, subject: &str, html: &str) -> Result<(), String> {
         if !self.is_enabled() {
-            tracing::debug!(to, subject, "Email not sent (no API key configured)");
+            tracing::debug!("Email not sent (no API key configured)");
             return Ok(());
         }
 
@@ -53,21 +55,24 @@ impl EmailService {
 
         let resp = self
             .client
-            .post("https://api.resend.com/emails")
+            .post(&self.endpoint)
             .header("Authorization", format!("Bearer {}", self.config.api_key))
             .json(&payload)
             .send()
             .await
-            .map_err(|e| format!("Failed to send email: {e}"))?;
+            .map_err(|e| {
+                // reqwest errors can embed the request URL; use a fixed label only
+                let kind = if e.is_timeout() { "timeout" } else if e.is_connect() { "connect" } else { "request" };
+                format!("Failed to send email ({kind})")
+            })?;
 
         if !resp.status().is_success() {
             let status = resp.status();
-            let body = resp.text().await.unwrap_or_default();
-            tracing::error!(status = %status, body, "Resend API error");
+                        tracing::error!(status = %status, "Resend API error");
             return Err(format!("Resend API returned {status}"));
         }
 
-        tracing::info!(to, subject, "Email sent via Resend");
+        tracing::info!("Email sent via Resend");
         Ok(())
     }
 
@@ -82,11 +87,7 @@ impl EmailService {
         raw_token: &str,
     ) -> Result<(), String> {
         if !self.is_enabled() {
-            tracing::debug!(
-                to = to_email,
-                token = raw_token,
-                "Verification email not sent (no API key configured — token logged for dev)"
-            );
+            tracing::debug!("Verification email not sent (no API key configured)");
             return Ok(());
         }
 
@@ -129,11 +130,7 @@ impl EmailService {
         raw_token: &str,
     ) -> Result<(), String> {
         if !self.is_enabled() {
-            tracing::debug!(
-                to = to_email,
-                token = raw_token,
-                "Password reset email not sent (no API key configured — token logged for dev)"
-            );
+            tracing::debug!("Password reset email not sent (no API key configured)");
             return Ok(());
         }
 
@@ -164,5 +161,112 @@ impl EmailService {
 
         self.send(to_email, "Reset your Nexus password", &html)
             .await
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    //! Zero-retention: neither the recipient address nor the token may reach a log line.
+    use super::*;
+    use std::io::Write;
+    use std::sync::{Arc, Mutex};
+
+    #[derive(Clone, Default)]
+    struct Buf(Arc<Mutex<Vec<u8>>>);
+    impl Write for Buf {
+        fn write(&mut self, b: &[u8]) -> std::io::Result<usize> {
+            self.0.lock().unwrap().extend_from_slice(b);
+            Ok(b.len())
+        }
+        fn flush(&mut self) -> std::io::Result<()> {
+            Ok(())
+        }
+    }
+    impl<'a> tracing_subscriber::fmt::MakeWriter<'a> for Buf {
+        type Writer = Buf;
+        fn make_writer(&'a self) -> Buf {
+            self.clone()
+        }
+    }
+
+    const ADDR: &str = "private.person@example.org";
+    const TOKEN: &str = "tok_marker_value_for_test";
+
+    fn capture() -> (Buf, tracing::subscriber::DefaultGuard) {
+        let buf = Buf::default();
+        let sub = tracing_subscriber::fmt()
+            .with_max_level(tracing::Level::TRACE)
+            .with_ansi(false)
+            .with_writer(buf.clone())
+            .finish();
+        (buf, tracing::subscriber::set_default(sub))
+    }
+
+    fn text(b: &Buf) -> String {
+        String::from_utf8(b.0.lock().unwrap().clone()).unwrap()
+    }
+
+    fn cfg(key: &str) -> EmailConfig {
+        EmailConfig {
+            api_key: key.into(),
+            from: "Nexus <noreply@example.org>".into(),
+            base_url: "https://example.org".into(),
+        }
+    }
+
+    fn assert_clean(out: &str) {
+        assert!(!out.contains(ADDR), "recipient leaked: {out}");
+        assert!(!out.contains("private.person"), "recipient leaked: {out}");
+        assert!(!out.contains(TOKEN), "token leaked: {out}");
+        assert!(!out.contains("Verify your Nexus email"), "subject leaked: {out}");
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn no_api_key_path_logs_neither_address_nor_token() {
+        let (buf, _g) = capture();
+        let svc = EmailService::new(cfg(""));
+        svc.send_verification_email(ADDR, "someone", TOKEN).await.unwrap();
+        svc.send_password_reset_email(ADDR, "someone", TOKEN).await.unwrap();
+        let out = text(&buf);
+        assert!(out.contains("no API key configured"), "expected a log line: {out}");
+        assert_clean(&out);
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn resend_error_response_logs_status_only() {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let port = listener.local_addr().unwrap().port();
+        tokio::spawn(async move {
+            use tokio::io::{AsyncReadExt, AsyncWriteExt};
+            let (mut sock, _) = listener.accept().await.unwrap();
+            let mut tmp = [0u8; 4096];
+            let _ = sock.read(&mut tmp).await;
+            let body = format!("{{\"message\":\"invalid recipient {ADDR} token {TOKEN}\"}}");
+            let resp = format!(
+                "HTTP/1.1 422 Unprocessable Entity\r\ncontent-length: {}\r\nconnection: close\r\n\r\n{body}",
+                body.len()
+            );
+            let _ = sock.write_all(resp.as_bytes()).await;
+        });
+        let (buf, _g) = capture();
+        let mut svc = EmailService::new(cfg("re_test"));
+        svc.endpoint = format!("http://127.0.0.1:{port}/emails");
+        let r = svc.send_verification_email(ADDR, "someone", TOKEN).await;
+        assert!(r.is_err());
+        let out = text(&buf);
+        assert!(out.contains("Resend API error"), "expected error log: {out}");
+        assert_clean(&out);
+        assert!(!r.unwrap_err().contains(ADDR));
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn connect_failure_logs_and_returns_no_address() {
+        let (buf, _g) = capture();
+        let mut svc = EmailService::new(cfg("re_test"));
+        svc.endpoint = "http://127.0.0.1:1/emails".into();
+        let r = svc.send_verification_email(ADDR, "someone", TOKEN).await;
+        assert!(r.is_err());
+        assert_clean(&text(&buf));
+        assert_clean(&r.unwrap_err());
     }
 }

@@ -135,15 +135,15 @@ impl IntoResponse for NexusError {
         // Don't leak internal details to clients
         let message = match &self {
             NexusError::Database(e) => {
-                tracing::error!("Database error: {e}");
+                tracing::error!(error_kind = %crate::logsafe::sqlx_kind(e), "Database error");
                 "An internal error occurred".to_string()
             }
-            NexusError::Redis(e) => {
-                tracing::error!("Redis error: {e}");
+            NexusError::Redis(_) => {
+                tracing::error!("Redis error");
                 "An internal error occurred".to_string()
             }
             NexusError::Internal(e) => {
-                tracing::error!("Internal error: {e}");
+                tracing::error!(error_kind = %crate::logsafe::anyhow_kind(e), "Internal error");
                 "An internal error occurred".to_string()
             }
             other => other.to_string(),

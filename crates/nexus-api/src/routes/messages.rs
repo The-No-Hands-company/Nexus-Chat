@@ -377,10 +377,7 @@ async fn send_message(
                     channel_id: Some(channel_id_copy),
                 };
                 if let Err(e) = sender.notify_user(&pool, mentioned_uid, &payload).await {
-                    tracing::warn!(
-                        error = %e,
-                        "Push notification failed for @mention"
-                    );
+                    tracing::warn!(error_kind = %nexus_common::logsafe::anyhow_kind(&e), "Push notification failed for @mention");
                 }
             }
 
@@ -419,10 +416,7 @@ async fn send_message(
                         channel_id: Some(channel_id_copy),
                     };
                     if let Err(e) = sender.notify_user(&pool, recipient_uid, &payload).await {
-                        tracing::warn!(
-                            error = %e,
-                            "Push notification failed for DM"
-                        );
+                        tracing::warn!(error_kind = %nexus_common::logsafe::anyhow_kind(&e), "Push notification failed for DM");
                     }
                 }
             }
@@ -452,11 +446,7 @@ async fn send_message(
                 {
                     Ok(p) => p,
                     Err(e) => {
-                        tracing::warn!(
-                            channel_id = %channel_id_copy,
-                            error = %e,
-                            "Failed to load DM participants for push notification"
-                        );
+                        tracing::warn!(channel_id = %channel_id_copy, error_kind = %nexus_common::logsafe::err_kind(&e), "Failed to load DM participants for push notification");
                         return;
                     }
                 };
@@ -474,10 +464,7 @@ async fn send_message(
                         continue; // never self-ping
                     }
                     if let Err(e) = sender.notify_user(&pool, participant_uid, &payload).await {
-                        tracing::warn!(
-                            error = %e,
-                            "Push notification failed for DM"
-                        );
+                        tracing::warn!(error_kind = %nexus_common::logsafe::anyhow_kind(&e), "Push notification failed for DM");
                     }
                 }
             });
@@ -539,12 +526,7 @@ async fn get_messages(
                 }
             }
             Err(err) => {
-                tracing::debug!(
-                    channel_id = %channel_id,
-                    error = %err,
-                    strategy = strategy.as_label(),
-                    "Scylla get_messages read failed; falling back to SQL"
-                );
+                tracing::debug!(channel_id = %channel_id, strategy = strategy.as_label(), "Scylla get_messages read failed; falling back to SQL");
                 metrics::counter!(
                     "nexus_scylla_read_total",
                     "route" => "get_messages",
@@ -653,13 +635,7 @@ async fn get_message(
                 }
             }
             Err(err) => {
-                tracing::debug!(
-                    message_id = %message_id,
-                    channel_id = %channel_id,
-                    error = %err,
-                    strategy = strategy.as_label(),
-                    "Scylla get_message read failed; falling back to SQL"
-                );
+                tracing::debug!(message_id = %message_id, channel_id = %channel_id, strategy = strategy.as_label(), "Scylla get_message read failed; falling back to SQL");
                 metrics::counter!(
                     "nexus_scylla_read_total",
                     "route" => "get_message",
@@ -1537,7 +1513,7 @@ async fn list_messages_from_scylla(
             rows
         }
         Err(error) => {
-            tracing::debug!(%channel_id, %error, "Scylla list read: SQL metadata batch lookup failed");
+            tracing::debug!(%channel_id, error_kind = %nexus_common::logsafe::err_kind(&error), "Scylla list read: SQL metadata batch lookup failed");
             metrics::counter!(
                 "nexus_scylla_read_total",
                 "kind" => "sql_meta",
@@ -1564,7 +1540,7 @@ async fn list_messages_from_scylla(
             rows
         }
         Err(error) => {
-            tracing::debug!(%channel_id, %error, "Scylla list read: reaction counts batch lookup failed");
+            tracing::debug!(%channel_id, error_kind = %nexus_common::logsafe::err_kind(&error), "Scylla list read: reaction counts batch lookup failed");
             metrics::counter!(
                 "nexus_scylla_read_total",
                 "kind" => "reaction_counts",
@@ -1592,7 +1568,7 @@ async fn list_messages_from_scylla(
             rows
         }
         Err(error) => {
-            tracing::debug!(%channel_id, %error, "Scylla list read: user reactions batch lookup failed");
+            tracing::debug!(%channel_id, error_kind = %nexus_common::logsafe::err_kind(&error), "Scylla list read: user reactions batch lookup failed");
             metrics::counter!(
                 "nexus_scylla_read_total",
                 "kind" => "user_reactions",
@@ -1777,7 +1753,7 @@ async fn get_message_from_scylla(
             rows
         }
         Err(error) => {
-            tracing::debug!(%channel_id, %message_id, %error, "Scylla get_message: reaction count lookup failed");
+            tracing::debug!(%channel_id, %message_id, error_kind = %nexus_common::logsafe::err_kind(&error), "Scylla get_message: reaction count lookup failed");
             metrics::counter!(
                 "nexus_scylla_read_total",
                 "kind" => "reaction_counts_single",
@@ -1805,7 +1781,7 @@ async fn get_message_from_scylla(
             map.get(&message_id).cloned().unwrap_or_default()
         }
         Err(error) => {
-            tracing::debug!(%channel_id, %message_id, %error, "Scylla get_message: user reaction lookup failed");
+            tracing::debug!(%channel_id, %message_id, error_kind = %nexus_common::logsafe::err_kind(&error), "Scylla get_message: user reaction lookup failed");
             metrics::counter!(
                 "nexus_scylla_read_total",
                 "kind" => "user_reactions_single",
@@ -1827,7 +1803,7 @@ async fn get_message_from_scylla(
             row
         }
         Err(error) => {
-            tracing::debug!(%channel_id, %message_id, %error, "Scylla get_message: SQL metadata lookup failed");
+            tracing::debug!(%channel_id, %message_id, error_kind = %nexus_common::logsafe::err_kind(&error), "Scylla get_message: SQL metadata lookup failed");
             metrics::counter!(
                 "nexus_scylla_read_total",
                 "kind" => "sql_meta_single",

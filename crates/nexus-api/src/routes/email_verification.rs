@@ -144,18 +144,13 @@ async fn resend_verification(
 
     // Send verification email via Resend (no-op if API key not configured)
     if let Some(ref email_addr) = user.email
-        && let Err(e) = state
+        && let Err(_) = state
             .email
             .send_verification_email(email_addr, &user.username, &raw_token)
             .await
         {
-            tracing::warn!( error = %e, "Failed to send verification email");
+            tracing::warn!("Failed to send verification email");
         }
-    tracing::debug!(
-        token = %raw_token,
-        "Verification email re-sent (token logged for dev)"
-    );
-
     tracing::info!( "Verification email queued");
     Ok(Json(ResendResponse {
         sent: true,
