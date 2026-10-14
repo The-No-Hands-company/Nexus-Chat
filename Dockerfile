@@ -88,7 +88,7 @@ ENTRYPOINT ["/app/nexus", "serve"]
 #   docker run --rm -v nexus_web_dist:/out nexus-web-builder \
 #     sh -c "cp -r /dist/. /out/"
 
-FROM node:22-alpine AS nexus-web-builder
+FROM node:24-alpine AS nexus-web-builder
 
 WORKDIR /web
 
