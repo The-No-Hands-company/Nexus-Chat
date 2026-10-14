@@ -369,8 +369,12 @@ class NexusApi {
     return this.request("GET", "/servers/" + serverId + "/channels");
   }
   async getChannel(channelId: string): Promise<Channel> { return this.request("GET", "/channels/" + channelId); }
-  async createChannel(serverId: string, data: Partial<Channel>): Promise<Channel> {
-    return this.request("POST", "/servers/" + serverId + "/channels", data);
+  async createChannel(serverId: string, data: { name: string; kind?: Channel["kind"] }): Promise<Channel> {
+    const { kind, ...rest } = data;
+    return this.request("POST", "/servers/" + serverId + "/channels", {
+      ...rest,
+      channel_type: kind ?? "text",
+    });
   }
   async updateChannel(channelId: string, data: Partial<Channel>): Promise<Channel> {
     return this.request("PATCH", "/channels/" + channelId, data);
