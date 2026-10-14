@@ -95,9 +95,13 @@ pub fn router() -> Router<Arc<AppState>> {
 
 /// GET /api/v1/servers/:server_id/channels
 async fn list_channels(
+    Extension(auth): Extension<AuthContext>,
     State(state): State<Arc<AppState>>,
     Path(server_id): Path<Uuid>,
 ) -> NexusResult<Json<Vec<nexus_common::models::channel::Channel>>> {
+    if !members::is_member(&state.db.pool, auth.user_id, server_id).await? {
+        return Err(NexusError::Forbidden);
+    }
     let channel_list = channels::list_server_channels(&state.db.pool, server_id).await?;
     Ok(Json(channel_list))
 }
@@ -184,6 +188,7 @@ async fn create_channel(
 
 /// GET /api/v1/channels/:channel_id
 async fn get_channel(
+    Extension(auth): Extension<AuthContext>,
     State(state): State<Arc<AppState>>,
     Path(channel_id): Path<Uuid>,
 ) -> NexusResult<Json<nexus_common::models::channel::Channel>> {
@@ -192,6 +197,21 @@ async fn get_channel(
         .ok_or(NexusError::NotFound {
             resource: "Channel".into(),
         })?;
+
+    // Server channels: caller must be a member of the server.
+    // DM/group-DM channels: caller must be a participant.
+    match channel.server_id {
+        Some(server_id) => {
+            if !members::is_member(&state.db.pool, auth.user_id, server_id).await? {
+                return Err(NexusError::NotFound { resource: "Channel".into() });
+            }
+        }
+        None => {
+            if !channels::is_dm_participant(&state.db.pool, channel_id, auth.user_id).await? {
+                return Err(NexusError::NotFound { resource: "Channel".into() });
+            }
+        }
+    }
 
     Ok(Json(channel))
 }

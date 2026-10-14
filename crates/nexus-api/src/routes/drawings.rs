@@ -15,7 +15,7 @@ use axum::{
 };
 use nexus_common::error::{NexusError, NexusResult};
 use nexus_common::snowflake;
-use nexus_db::repository::drawings;
+use nexus_db::repository::{channels, drawings, members};
 use serde::Deserialize;
 use std::sync::Arc;
 use uuid::Uuid;
@@ -64,6 +64,42 @@ struct ListQuery {
     offset: Option<i64>,
 }
 
+// ── Access guard ──────────────────────────────────────────────────────────────
+
+/// Verify that `user_id` may read/write the channel identified by `channel_id`.
+/// For server channels the caller must be a server member; for DMs they must
+/// be a participant.  Returns `NotFound` (not `Forbidden`) on a missing channel
+/// so callers cannot probe for channel existence.
+async fn require_channel_access(
+    state: &AppState,
+    channel_id: Uuid,
+    user_id: Uuid,
+) -> NexusResult<()> {
+    let channel = channels::find_by_id(&state.db.pool, channel_id)
+        .await
+        .map_err(|e| NexusError::Internal(e.into()))?
+        .ok_or(NexusError::NotFound { resource: "Channel".into() })?;
+    match channel.server_id {
+        Some(server_id) => {
+            if !members::is_member(&state.db.pool, user_id, server_id)
+                .await
+                .map_err(|e| NexusError::Internal(e.into()))?
+            {
+                return Err(NexusError::Forbidden);
+            }
+        }
+        None => {
+            if !channels::is_dm_participant(&state.db.pool, channel_id, user_id)
+                .await
+                .map_err(|e| NexusError::Internal(e.into()))?
+            {
+                return Err(NexusError::Forbidden);
+            }
+        }
+    }
+    Ok(())
+}
+
 // ── Handlers ──────────────────────────────────────────────────────────────────
 
 async fn create_drawing(
@@ -98,10 +134,12 @@ async fn create_drawing(
 }
 
 async fn list_drawings(
+    Extension(ctx): Extension<AuthContext>,
     State(state): State<Arc<AppState>>,
     Path(channel_id): Path<Uuid>,
     Query(q): Query<ListQuery>,
 ) -> NexusResult<Json<Vec<nexus_common::models::multimedia::Drawing>>> {
+    require_channel_access(&state, channel_id, ctx.user_id).await?;
     let limit = q.limit.unwrap_or(50).min(100);
     let offset = q.offset.unwrap_or(0);
     drawings::list_by_channel(&state.db.pool, channel_id, limit, offset)
@@ -111,9 +149,11 @@ async fn list_drawings(
 }
 
 async fn list_whiteboards(
+    Extension(ctx): Extension<AuthContext>,
     State(state): State<Arc<AppState>>,
     Path(channel_id): Path<Uuid>,
 ) -> NexusResult<Json<Vec<nexus_common::models::multimedia::Drawing>>> {
+    require_channel_access(&state, channel_id, ctx.user_id).await?;
     drawings::list_whiteboards(&state.db.pool, channel_id)
         .await
         .map(Json)
@@ -121,28 +161,35 @@ async fn list_whiteboards(
 }
 
 async fn get_drawing(
+    Extension(ctx): Extension<AuthContext>,
     State(state): State<Arc<AppState>>,
     Path(id): Path<Uuid>,
 ) -> NexusResult<Json<nexus_common::models::multimedia::Drawing>> {
-    drawings::find_drawing(&state.db.pool, id)
+    let drawing = drawings::find_drawing(&state.db.pool, id)
         .await
         .map_err(|e| NexusError::Internal(e.into()))?
-        .map(Json)
-        .ok_or(NexusError::NotFound {
-            resource: "Drawing".into(),
-        })
+        .ok_or(NexusError::NotFound { resource: "Drawing".into() })?;
+    require_channel_access(&state, drawing.channel_id, ctx.user_id).await?;
+    Ok(Json(drawing))
 }
 
 async fn update_drawing(
+    Extension(ctx): Extension<AuthContext>,
     State(state): State<Arc<AppState>>,
     Path(id): Path<Uuid>,
     Json(body): Json<UpdateDrawingRequest>,
 ) -> NexusResult<Json<nexus_common::models::multimedia::Drawing>> {
+    let drawing = drawings::find_drawing(&state.db.pool, id)
+        .await
+        .map_err(|e| NexusError::Internal(e.into()))?
+        .ok_or(NexusError::NotFound { resource: "Drawing".into() })?;
+    if drawing.author_id != ctx.user_id {
+        return Err(NexusError::Forbidden);
+    }
     let drawing_data_str =
         serde_json::to_string(&body.drawing_data).map_err(|_| NexusError::Validation {
             message: "Invalid drawing data".into(),
         })?;
-
     drawings::update_drawing_data(
         &state.db.pool,
         id,

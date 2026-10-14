@@ -493,11 +493,19 @@ async fn get_messages(
             resource: "Channel".into(),
         })?;
 
-    // If server channel, verify membership
-    if let Some(server_id) = channel.server_id
-        && !members::is_member(&state.db.pool, auth.user_id, server_id).await? {
-            return Err(NexusError::Forbidden);
+    // If server channel, verify membership; for DMs verify participation.
+    match channel.server_id {
+        Some(server_id) => {
+            if !members::is_member(&state.db.pool, auth.user_id, server_id).await? {
+                return Err(NexusError::Forbidden);
+            }
         }
+        None => {
+            if !channels::is_dm_participant(&state.db.pool, channel_id, auth.user_id).await? {
+                return Err(NexusError::Forbidden);
+            }
+        }
+    }
 
     let limit = params.limit.unwrap_or(50).clamp(1, 100);
     let strategy = scylla_read_strategy(&state);

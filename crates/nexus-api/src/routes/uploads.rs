@@ -11,7 +11,7 @@ use axum::{
     routing::{get, post},
 };
 use nexus_common::error::{NexusError, NexusResult};
-use nexus_db::repository::attachments;
+use nexus_db::repository::{attachments, channels, members};
 use serde::Serialize;
 use std::sync::Arc;
 use uuid::Uuid;
@@ -269,13 +269,35 @@ async fn get_attachment(
     State(state): State<Arc<AppState>>,
     Path(id): Path<Uuid>,
 ) -> NexusResult<Json<AttachmentResponse>> {
-    let _ = auth; // auth just verifies the user is logged in
-
     let row = attachments::find_by_id(&state.db.pool, id)
         .await?
         .ok_or(NexusError::NotFound {
             resource: "Attachment".into(),
         })?;
+
+    // The uploader always has access to their own attachment.
+    // For channel-associated attachments, the caller must be a member/participant
+    // of that channel. An attachment with no channel association (e.g. a profile
+    // picture upload) is accessible to any authenticated user.
+    if row.uploader_id != auth.user_id {
+        if let Some(channel_id) = row.channel_id {
+            let channel = nexus_db::repository::channels::find_by_id(&state.db.pool, channel_id)
+                .await?
+                .ok_or(NexusError::NotFound { resource: "Attachment".into() })?;
+            match channel.server_id {
+                Some(server_id) => {
+                    if !members::is_member(&state.db.pool, auth.user_id, server_id).await? {
+                        return Err(NexusError::Forbidden);
+                    }
+                }
+                None => {
+                    if !channels::is_dm_participant(&state.db.pool, channel_id, auth.user_id).await? {
+                        return Err(NexusError::Forbidden);
+                    }
+                }
+            }
+        }
+    }
 
     // Always generate a fresh presigned URL from the storage key.
     // The URL stored in the DB at upload time may be stale or permanent —

@@ -145,6 +145,23 @@ pub async fn find_or_create_dm(
     Ok(channel)
 }
 
+/// Return true if `user_id` is a participant in the DM/group-DM channel.
+pub async fn is_dm_participant(
+    pool: &sqlx::AnyPool,
+    channel_id: Uuid,
+    user_id: Uuid,
+) -> Result<bool, sqlx::Error> {
+    let row: Option<(i64,)> = sqlx::query_as(
+        "SELECT COUNT(*)::bigint FROM dm_participants \
+         WHERE channel_id = $1::uuid AND user_id = $2::uuid",
+    )
+    .bind(channel_id.to_string())
+    .bind(user_id.to_string())
+    .fetch_optional(pool)
+    .await?;
+    Ok(row.map(|(n,)| n > 0).unwrap_or(false))
+}
+
 /// Return all participant user IDs for a DM or group DM channel.
 ///
 /// Used by the push notification path to fan out a notification to every
