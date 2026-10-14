@@ -54,6 +54,13 @@ export default function ServerList({ onOpenSettings, onOpenJoin }: Props) {
       aria-label={t("nav.servers")}
       className="w-14 bg-bg-900 border-r border-bg-600/40 flex flex-col items-center py-2 shrink-0 overflow-y-auto gap-1"
     >
+      {/* Nexus brand mark */}
+      <div className="w-10 h-10 flex items-center justify-center shrink-0 mb-0.5" aria-hidden="true">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" style={{ color: "#ccff00" }}>
+          <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
+        </svg>
+      </div>
+
       {/* Home / DMs */}
       <SpaceBtn active={homeMode} title={t("server.home")} onClick={handleHome}>
         <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
