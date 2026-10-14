@@ -1,2 +1,7 @@
 [alias]
 lint = "clippy --workspace --all-targets --all-features -- -D warnings -D clippy::all -D clippy::pedantic"
+
+# lld is dramatically faster than the default GNU ld for large binaries like
+# nexus (800MB+ debug). The -fuse-ld flag is passed through the C linker driver.
+[target.x86_64-unknown-linux-gnu]
+rustflags = ["-C", "link-arg=-fuse-ld=lld"]
