@@ -447,9 +447,6 @@ pub const MIGRATION_GUIDE_COLS: &str = "id::text AS id, from_platform, title, co
      author_id::text AS author_id, created_at::text AS created_at, \
      updated_at::text AS updated_at";
 
-// ── phantom identities ────────────────────────────────────────────────────────
-// Secret key material is deliberately absent: these columns feed PhantomIdentity,
-// which is serialized to clients. Secrets are read separately by
-// repository::phantom::get_secret_keys.
+// ── phantom identities (public keys only; Privacy Part 3) ────────────────────
 pub const PHANTOM_IDENTITY_COLS: &str = "user_id::text AS user_id, did, kem_public, signing_public, \
      created_at::text AS created_at";

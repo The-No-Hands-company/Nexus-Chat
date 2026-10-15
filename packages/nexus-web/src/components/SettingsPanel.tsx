@@ -2,6 +2,7 @@ import { useState, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { useStore } from "../store";
 import clsx from "clsx";
+import PhantomKeyManager from "./PhantomKeyManager";
 
 type Tab = "profile" | "security" | "appearance" | "connection";
 
@@ -331,6 +332,15 @@ export default function SettingsPanel({ onClose }: { onClose: () => void }) {
                 >
                   {pwSaving ? "Saving…" : "Change Password"}
                 </button>
+
+                <div className="pt-4 border-t" style={{ borderColor: "rgba(255,255,255,0.07)" }}>
+                  <SectionTitle>Post-Quantum Identity</SectionTitle>
+                  <p className="text-sm mt-1 mb-3" style={{ color: "var(--muted)" }}>
+                    Your Phantom identity uses ML-KEM-1024 + ML-DSA-87. Keys are generated in
+                    your browser and never sent to the server.
+                  </p>
+                  <PhantomKeyManager />
+                </div>
 
                 <div className="pt-4 border-t" style={{ borderColor: "rgba(255,255,255,0.07)" }}>
                   <SectionTitle>Active Sessions</SectionTitle>
