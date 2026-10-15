@@ -29,6 +29,10 @@
   --color-accent-500: var(--accent-500);
   --color-accent-600: var(--accent-600);
   --color-surface: var(--bg-700);
+  --color-state-success: var(--nexus-color-state-success);
+  --color-state-warning: var(--nexus-color-state-warning);
+  --color-state-danger:  var(--nexus-color-state-danger);
+  --color-state-info:    var(--nexus-color-state-info);
 }
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -104,8 +108,8 @@ html, body, #root {
 .nx-btn-primary:not(:disabled):hover { background: var(--accent-400); }
 .nx-btn-ghost { background: var(--bg-600); color: var(--fg); }
 .nx-btn-ghost:not(:disabled):hover { background: var(--bg-500); }
-.nx-btn-danger { background: #7f1d1d; color: #fca5a5; }
-.nx-btn-danger:not(:disabled):hover { background: #991b1b; }
+.nx-btn-danger { background: color-mix(in srgb, var(--nexus-color-state-danger) 20%, transparent); color: var(--nexus-color-state-danger); }
+.nx-btn-danger:not(:disabled):hover { background: color-mix(in srgb, var(--nexus-color-state-danger) 30%, transparent); }
 
 /* Message */
 .msg-row { padding: 2px 16px; display: flex; flex-direction: column; }
@@ -117,7 +121,7 @@ html, body, #root {
 
 /* Status dot */
 .status-dot { width: 8px; height: 8px; border-radius: 50%; shrink: 0; }
-.status-online  { background: #34d399; }
-.status-idle    { background: #fbbf24; }
-.status-dnd     { background: #f87171; }
+.status-online  { background: var(--nexus-color-state-success); }
+.status-idle    { background: var(--nexus-color-state-warning); }
+.status-dnd     { background: var(--nexus-color-state-danger); }
 .status-offline { background: var(--bg-500); }

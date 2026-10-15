@@ -131,9 +131,9 @@ export default function SettingsPanel({ onClose }: { onClose: () => void }) {
   }
 
   const gwColor =
-    gatewayStatus === "online" ? "#4ade80"
+    gatewayStatus === "online" ? "var(--nexus-color-state-success)"
     : gatewayStatus === "connecting" ? "#facc15"
-    : "#f87171";
+    : "var(--nexus-color-state-danger)";
 
   const TABS: { id: Tab; label: string }[] = [
     { id: "profile",    label: t("settings.profile") },
@@ -184,7 +184,7 @@ export default function SettingsPanel({ onClose }: { onClose: () => void }) {
           <button
             onClick={() => setSession(null)}
             className="w-full text-left px-2 py-1.5 rounded-lg text-sm transition-colors hover:opacity-80"
-            style={{ color: "#f87171" }}
+            style={{ color: "var(--nexus-color-state-danger)" }}
           >
             {t("settings.danger.deleteAccount").includes("delete") ? "Sign out" : t("auth.signOut")}
           </button>
@@ -502,7 +502,7 @@ function Alert({ ok, children }: { ok: boolean; children: React.ReactNode }) {
       className="px-3 py-2.5 rounded-lg text-sm"
       style={{
         background: ok ? "rgba(74,222,128,0.1)" : "rgba(248,113,113,0.1)",
-        color: ok ? "#4ade80" : "#f87171",
+        color: ok ? "var(--nexus-color-state-success)" : "var(--nexus-color-state-danger)",
         border: `1px solid ${ok ? "rgba(74,222,128,0.25)" : "rgba(248,113,113,0.25)"}`,
       }}
     >

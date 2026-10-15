@@ -45,9 +45,9 @@ export default function ServerList({ onOpenSettings, onOpenJoin }: Props) {
   };
 
   const gwColor =
-    gatewayStatus === "online" ? "#4ade80"
+    gatewayStatus === "online" ? "var(--nexus-color-state-success)"
     : gatewayStatus === "connecting" ? "#facc15"
-    : "#f87171";
+    : "var(--nexus-color-state-danger)";
 
   return (
     <nav

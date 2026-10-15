@@ -12,9 +12,9 @@ import { useStore } from "../store";
 import type { NxUser } from "../store";
 
 const PRESENCE_COLOR: Record<string, string> = {
-  online:    "#4ade80",
+  online:    "var(--nexus-color-state-success)",
   idle:      "#facc15",
-  dnd:       "#f87171",
+  dnd:       "var(--nexus-color-state-danger)",
   invisible: "#6b7280",
   offline:   "#6b7280",
 };

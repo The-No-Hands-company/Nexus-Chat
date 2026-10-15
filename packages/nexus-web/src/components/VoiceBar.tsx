@@ -22,9 +22,9 @@ export default function VoiceBar({ voice }: Props) {
   const channelName = channel?.name ?? "Voice";
 
   const statusColor =
-    status === "connected"  ? "#4ade80"
+    status === "connected"  ? "var(--nexus-color-state-success)"
     : status === "connecting" ? "#facc15"
-    : "#f87171";
+    : "var(--nexus-color-state-danger)";
 
   return (
     <div
@@ -61,7 +61,7 @@ export default function VoiceBar({ voice }: Props) {
         <VoiceBtn
           title={muted ? "Unmute" : "Mute"}
           active={muted}
-          activeColor="#f87171"
+          activeColor="var(--nexus-color-state-danger)"
           onClick={toggleMute}
         >
           {muted ? (
@@ -79,7 +79,7 @@ export default function VoiceBar({ voice }: Props) {
         <VoiceBtn
           title={deafened ? "Undeafen" : "Deafen"}
           active={deafened}
-          activeColor="#f87171"
+          activeColor="var(--nexus-color-state-danger)"
           onClick={toggleDeafen}
         >
           {deafened ? (
@@ -100,7 +100,7 @@ export default function VoiceBar({ voice }: Props) {
           onClick={leaveVoice}
           title="Disconnect from voice"
           className="flex items-center gap-1 px-2 py-1 rounded text-xs font-semibold transition-colors hover:bg-red-900/30"
-          style={{ color: "#f87171" }}
+          style={{ color: "var(--nexus-color-state-danger)" }}
         >
           <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
             <path d="M17 7l-1.41 1.41L18.17 11H8v2h10.17l-2.58 2.58L17 17l5-5zM4 5h8V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h8v-2H4V5z"/>
@@ -120,7 +120,7 @@ export default function VoiceBar({ voice }: Props) {
             >
               <span
                 className="inline-block w-1.5 h-1.5 rounded-full shrink-0"
-                style={{ background: p.muted ? "var(--muted)" : "#4ade80" }}
+                style={{ background: p.muted ? "var(--muted)" : "var(--nexus-color-state-success)" }}
               />
               <span className="truncate max-w-[80px]">{p.username}</span>
               {p.deafened && <span title="Deafened" className="opacity-50">🔇</span>}
