@@ -31,9 +31,10 @@ const MAX_UPLOAD_BYTES: usize = 100 * 1024 * 1024;
 fn is_allowed_content_type(ct: &str) -> bool {
     matches!(
         ct,
-        // Images
+        // Images — SVG excluded: scriptable content served from storage.tnhc.dev
+        // would run in the shared cookie domain, enabling XSS.
         |"image/jpeg"| "image/png" | "image/gif" | "image/webp"
-        | "image/svg+xml" | "image/avif" | "image/bmp" | "image/tiff"
+        | "image/avif" | "image/bmp" | "image/tiff"
         // Video
         | "video/mp4" | "video/webm" | "video/ogg" | "video/quicktime"
         // Audio

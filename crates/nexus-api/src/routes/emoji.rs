@@ -69,6 +69,17 @@ async fn create_emoji(
         match field.name() {
             Some("image") => {
                 if let Some(ct) = field.content_type() {
+                    // Strict allowlist: only raster image formats. SVG and other
+                    // scriptable types are excluded because MinIO serves them
+                    // verbatim from storage.tnhc.dev, which shares the session
+                    // cookie domain, enabling XSS.
+                    const ALLOWED: &[&str] =
+                        &["image/png", "image/gif", "image/webp", "image/jpeg", "image/avif"];
+                    if !ALLOWED.contains(&ct) {
+                        return Err(NexusError::Validation {
+                            message: format!("Content type '{}' is not allowed for emoji", ct),
+                        });
+                    }
                     content_type = ct.to_string();
                 }
                 let bytes = field.bytes().await.map_err(|e| NexusError::Validation {
