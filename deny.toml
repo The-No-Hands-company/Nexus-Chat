@@ -1,18 +1,69 @@
-# cargo-deny configuration
+# cargo-deny 0.20 configuration
 # Run: cargo deny check
 # CI: see .github/workflows/ci.yml
 
 [advisories]
-# Vulnerability database
 db-path = "~/.cargo/advisory-db"
 db-urls = ["https://github.com/rustsec/advisory-db"]
 
-# Error on any unignored vulnerability
-deny = ["unsound", "unmaintained", "yanked", "notice"]
-ignore = []
+# ── Documented exemptions ────────────────────────────────────────────────────
+ignore = [
+    # ── AWS SDK hyper-0.14 chain ─────────────────────────────────────────────
+    # aws-sdk-s3 still uses hyper 0.14 → h2 0.3.x + rustls 0.21.x +
+    # rustls-webpki 0.101.x.  No patch is available inside those minor ranges;
+    # waiting on the AWS SDK to migrate to hyper 1.x.  The S3 client calls
+    # MinIO on loopback only, not the public internet.
+    { id = "RUSTSEC-2026-0258", reason = "h2 0.3 via aws-sdk-s3/hyper-0.14; no patch; MinIO on loopback only" },
+    { id = "RUSTSEC-2026-0346", reason = "rustls 0.21 via aws-sdk-s3; no 0.21.x patch; Debug exposure only" },
+    { id = "RUSTSEC-2026-0349", reason = "rustls 0.21 via aws-sdk-s3; ServerHello downgrade; loopback MinIO only" },
+    { id = "RUSTSEC-2026-0098", reason = "rustls-webpki 0.101 via rustls 0.21 via aws-sdk-s3" },
+    { id = "RUSTSEC-2026-0099", reason = "rustls-webpki 0.101 via rustls 0.21 via aws-sdk-s3" },
+    { id = "RUSTSEC-2026-0104", reason = "rustls-webpki 0.101 via rustls 0.21 via aws-sdk-s3" },
+
+    # ── rsa — Marvin Attack ──────────────────────────────────────────────────
+    # Used only in nexus-common::identity::testing to generate ephemeral keys
+    # for unit tests.  No production code calls decrypt().  No fix available.
+    { id = "RUSTSEC-2023-0071", reason = "rsa only used in test key generation; no decrypt() in production; no fix available" },
+
+    # ── lru — soundness in IterMut / pop() ──────────────────────────────────
+    # aws-sdk-s3 and tantivy both require lru ^0.12; fix needs >=0.13 (breaking).
+    { id = "RUSTSEC-2026-0002",  reason = "lru 0.12 via aws-sdk-s3+tantivy; fix needs 0.13 (breaking)" },
+    { id = "RUSTSEC-2026-0253",  reason = "lru 0.12 pop() panic unsoundness; same root cause as RUSTSEC-2026-0002" },
+
+    # ── rand — unsoundness with a custom panicking allocator ─────────────────
+    # Only triggered when a custom global allocator panics in thread-local init.
+    # The server uses the default system allocator.
+    { id = "RUSTSEC-2026-0097", reason = "rand unsoundness requires a custom panicking global allocator; server uses system allocator" },
+
+    # ── event-listener — !Send across threads ───────────────────────────────
+    # Pulled by tantivy; the StackSlot path is behind an internal API not
+    # reachable from tantivy's public interface.
+    { id = "RUSTSEC-2026-0221", reason = "event-listener via tantivy; StackSlot path not reachable from tantivy API" },
+
+    # ── Tauri / desktop-only ─────────────────────────────────────────────────
+    # Pulled exclusively by nexus-desktop (Tauri 2) and mobile build tooling.
+    # The server binary does not link any of these crates.
+    { id = "RUSTSEC-2026-0194", reason = "quick-xml via Tauri plist/winrt-notification; not in server binary" },
+    { id = "RUSTSEC-2026-0195", reason = "quick-xml via Tauri plist/winrt-notification; not in server binary" },
+    { id = "RUSTSEC-2021-0145", reason = "atty via Tauri build tooling; not in server binary" },
+    { id = "RUSTSEC-2024-0375", reason = "atty unmaintained via Tauri; not in server binary" },
+    { id = "RUSTSEC-2025-0057", reason = "fxhash unmaintained via Tauri; not in server binary" },
+    { id = "RUSTSEC-2024-0384", reason = "instant unmaintained via Tauri; not in server binary" },
+    { id = "RUSTSEC-2024-0380", reason = "pqcrypto-dilithium replaced by pqcrypto-mldsa; Phantom upgrade planned" },
+    { id = "RUSTSEC-2024-0381", reason = "pqcrypto-kyber replaced by pqcrypto-mlkem; Phantom upgrade planned" },
+    { id = "RUSTSEC-2026-0162", reason = "pqcrypto-traits unmaintained; Phantom upgrade planned" },
+    { id = "RUSTSEC-2026-0163", reason = "pqcrypto-internals unmaintained; Phantom upgrade planned" },
+    { id = "RUSTSEC-2024-0370", reason = "proc-macro-error unmaintained; build-time macro via Tauri" },
+    { id = "RUSTSEC-2026-0173", reason = "proc-macro-error2 unmaintained; build-time macro via Tauri" },
+    { id = "RUSTSEC-2025-0075", reason = "unic-char-range unmaintained; Tauri unicode dep" },
+    { id = "RUSTSEC-2025-0080", reason = "unic-common unmaintained; Tauri unicode dep" },
+    { id = "RUSTSEC-2025-0081", reason = "unic-char-property unmaintained; Tauri unicode dep" },
+    { id = "RUSTSEC-2025-0098", reason = "unic-ucd-version unmaintained; Tauri unicode dep" },
+    { id = "RUSTSEC-2025-0100", reason = "unic-ucd-ident unmaintained; Tauri unicode dep" },
+    { id = "RUSTSEC-2024-0429", reason = "glib unsoundness via Tauri/GTK; not in server binary" },
+]
 
 [licenses]
-# Allowed SPDX license expressions
 allow = [
     "MIT",
     "Apache-2.0",
@@ -27,32 +78,17 @@ allow = [
     "Unlicense",
     "Zlib",
 ]
-# Deny these licenses explicitly
-deny = [
-    "GPL-2.0",   # GPL v2 only — no later or with exceptions
-    "AGPL-3.0",  # Our own code is AGPL; deny dependencies that are also AGPL
-                 # unless they're intentionally included
-]
-# Confidence threshold for licence detection
 confidence-threshold = 0.8
 
 [licenses.private]
 ignore = false
 
 [bans]
-# Disallow multiple versions of these crates
 multiple-versions = "warn"
 wildcards = "allow"
-
-# Deny these crates entirely
 deny = [
-    # Avoid old, unmaintained crypto
     { name = "rust-crypto" },
-    # Use rustls instead of openssl where possible
-    # (openssl is allowed as a transitive dep of some C libs)
 ]
-
-# Skip duplicate version checks for crates known to have two versions in the tree
 skip = []
 skip-tree = []
 
