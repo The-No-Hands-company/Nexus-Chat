@@ -100,13 +100,25 @@ export default function ChatView() {
     }
   }
 
+  // Update document title for screen readers to announce channel navigation
+  useEffect(() => {
+    if (channel?.name) {
+      document.title = `#${channel.name} — Nexus`;
+      return () => { document.title = "Nexus"; };
+    }
+  }, [channel?.name]);
+
   if (!channelId) return null;
 
   return (
     <div className="flex flex-col flex-1 min-h-0 bg-bg-900">
       {/* Channel header */}
-      <div className="flex items-center gap-2 px-4 py-2.5 border-b border-bg-600/40 shrink-0 bg-bg-800">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" className="text-muted shrink-0">
+      <header
+        role="banner"
+        aria-label={`Channel: ${channel?.name ?? channelId}`}
+        className="flex items-center gap-2 px-4 py-2.5 border-b border-bg-600/40 shrink-0 bg-bg-800"
+      >
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" className="text-muted shrink-0" aria-hidden="true">
           <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/>
         </svg>
         <span className="font-semibold text-sm text-fg truncate">
@@ -114,7 +126,7 @@ export default function ChatView() {
         </span>
         {channel?.topic && (
           <>
-            <div className="w-px h-4 bg-bg-500 shrink-0" />
+            <div className="w-px h-4 bg-bg-500 shrink-0" aria-hidden="true" />
             <span className="text-xs text-muted truncate">{channel.topic}</span>
           </>
         )}
@@ -123,10 +135,16 @@ export default function ChatView() {
             🔒 E2EE
           </span>
         )}
-      </div>
+      </header>
 
-      {/* Message list */}
-      <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-0.5">
+      {/* Message list — role="log" tells AT this is a live message feed */}
+      <div
+        role="log"
+        aria-label={`Messages in #${channel?.name ?? "channel"}`}
+        aria-live="polite"
+        aria-relevant="additions"
+        className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-0.5"
+      >
         {/* Load more */}
         {channelMessages.length >= 50 && (
           <div className="flex justify-center pb-2">
@@ -173,16 +191,16 @@ export default function ChatView() {
           />
         ))}
 
-        {/* Typing indicator */}
-        {typingUsers.length > 0 && (
-          <div className="text-xs text-muted italic px-1 pt-1">
-            {typingUsers.length === 1
+        {/* Typing indicator — always in DOM so aria-live announces changes */}
+        <div aria-live="polite" aria-atomic="true" className="text-xs text-muted italic px-1 pt-1 min-h-[1.2em]">
+          {typingUsers.length > 0 && (
+            typingUsers.length === 1
               ? t("chat.typing.one", { user: typingUsers[0] })
               : typingUsers.length === 2
               ? t("chat.typing.two", { user1: typingUsers[0], user2: typingUsers[1] })
-              : t("chat.typing.many")}
-          </div>
-        )}
+              : t("chat.typing.many")
+          )}
+        </div>
 
         <div ref={bottomRef} />
       </div>
@@ -207,7 +225,7 @@ export default function ChatView() {
         )}
 
         {error && (
-          <div className="mb-1.5 text-xs text-red-400 bg-red-950/30 border border-red-800/40 rounded px-2 py-1">
+          <div role="alert" className="mb-1.5 text-xs text-red-400 bg-red-950/30 border border-red-800/40 rounded px-2 py-1">
             {error}
           </div>
         )}
@@ -219,6 +237,7 @@ export default function ChatView() {
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
               onKeyDown={handleKeyDown}
+              aria-label={`Message #${channel?.name ?? "channel"}`}
               placeholder={`Message #${channel?.name ?? "channel"}`}
               rows={1}
               disabled={sending}

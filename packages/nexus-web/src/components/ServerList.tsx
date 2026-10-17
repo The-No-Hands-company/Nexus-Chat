@@ -127,15 +127,17 @@ export default function ServerList({ onOpenSettings, onOpenJoin }: Props) {
       <div
         className="w-2 h-2 rounded-full my-0.5"
         style={{ background: gwColor }}
+        aria-hidden="true"
         title={`Gateway: ${gatewayStatus}`}
       />
+      <span className="sr-only">Gateway: {gatewayStatus}</span>
 
       {/* User avatar / settings */}
       <button
         onClick={() => onOpenSettings?.()}
+        aria-label={`${session?.username ?? "User"} — Settings (Ctrl+,)`}
         title={`${session?.username} — Settings (Ctrl+,)`}
-        className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold hover:opacity-80 transition-opacity mt-0.5 relative"
-        style={{ background: "rgba(124,58,237,0.25)", color: "var(--accent-300)" }}
+        className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold hover:opacity-80 transition-opacity mt-0.5 relative bg-accent-500/25 text-accent-300 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-500"
       >
         {session?.username?.[0]?.toUpperCase() ?? "?"}
       </button>
@@ -163,10 +165,12 @@ function SpaceBtn({
       )} />
       <button
         title={title}
+        aria-label={title}
         onClick={onClick}
         className={clsx(
           "w-10 h-10 rounded-xl flex items-center justify-center text-muted transition-all",
           "hover:rounded-lg hover:bg-accent-500/20 hover:text-accent-300",
+          "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-500",
           active && "!rounded-lg bg-accent-500/20 text-accent-300"
         )}
       >

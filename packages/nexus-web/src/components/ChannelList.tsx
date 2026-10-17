@@ -168,7 +168,7 @@ export default function ChannelList({ voice }: { voice?: UseVoiceReturn }) {
           </span>
           <button
             onClick={() => setCreatingText((v) => !v)}
-            className="opacity-0 group-hover:opacity-100 text-muted/60 hover:text-fg transition-all p-0.5 rounded"
+            className="opacity-0 group-hover:opacity-100 focus-visible:opacity-100 text-muted/60 hover:text-fg focus-visible:text-fg transition-all p-0.5 rounded focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent-500"
             title={t("channel.createTextChannel")}
             aria-label={t("channel.createTextChannel")}
           >
