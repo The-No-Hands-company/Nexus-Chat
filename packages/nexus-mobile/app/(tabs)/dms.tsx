@@ -7,9 +7,10 @@ import {
   SafeAreaView, TextInput, Modal, Alert,
 } from "react-native";
 import { useRouter } from "expo-router";
-import { store } from "../lib/store";
+import { store, useStore } from "../lib/store";
 
 export default function DMsScreen() {
+  useStore();
   const router = useRouter();
   const [showSearch, setShowSearch] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");

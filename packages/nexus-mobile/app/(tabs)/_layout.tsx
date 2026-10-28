@@ -1,10 +1,10 @@
 /**
  * _layout.tsx - Tab-based root layout after auth
  */
-import React, { useEffect, useState } from "react";
+import React, { useEffect } from "react";
 import { Tabs } from "expo-router";
 import { View, Text, StyleSheet } from "react-native";
-import { store } from "../lib/store";
+import { store, useStore } from "../lib/store";
 import { gateway } from "../lib/gateway";
 
 function UnreadBadge({ count }: { count: number }) {
@@ -17,7 +17,7 @@ function UnreadBadge({ count }: { count: number }) {
 }
 
 export default function TabLayout() {
-  const [tab, setTab] = useState<"servers" | "dms" | "profile">("servers");
+  useStore();
 
   useEffect(() => {
     if (store.isAuthenticated) {

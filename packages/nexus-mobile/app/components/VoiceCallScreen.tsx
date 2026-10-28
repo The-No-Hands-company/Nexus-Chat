@@ -7,7 +7,7 @@ import {
   SafeAreaView, ActivityIndicator
 } from "react-native";
 import { useRouter } from "expo-router";
-import { store } from "../lib/store";
+import { store, useStore } from "../lib/store";
 import { api } from "../lib/api";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
@@ -24,6 +24,7 @@ interface Participant {
 }
 
 export default function VoiceCallScreen() {
+  useStore();
   const router = useRouter();
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [connected, setConnected] = useState(false);

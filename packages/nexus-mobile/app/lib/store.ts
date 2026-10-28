@@ -1,6 +1,7 @@
 /**
  * store.ts - Zustand-compatible React Native store with AsyncStorage persistence
  */
+import { useSyncExternalStore } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { api, getDefaultServerOrigin, normalizeApiBaseUrl } from "./api";
 import type { User, Server, Channel, Message, DmChannel, Relationship, ServerMember } from "./api";
@@ -121,11 +122,13 @@ class Store {
 
   get api() { return api; }
 
+  private _rev = 0;
   private listeners = new Set<Listener>();
-  subscribe(fn: Listener) { this.listeners.add(fn); return () => { this.listeners.delete(fn); }; }
+  subscribe = (fn: Listener) => { this.listeners.add(fn); return () => { this.listeners.delete(fn); }; };
   addListener = (fn: Listener) => { this.listeners.add(fn); return () => { this.listeners.delete(fn); }; };
-  private emit() { this.listeners.forEach(fn => fn()); }
+  private emit() { this._rev++; this.listeners.forEach(fn => fn()); }
   notify() { this.emit(); }
+  getSnapshot = () => this._rev;
 
   get hasSession() { return !!this.session; }
   get isAuthenticated() { return !!this.session; }
@@ -488,3 +491,13 @@ class Store {
 }
 
 export const store = new Store();
+
+/**
+ * useStore() — subscribe a React component to the store.
+ * Call once per component; returns the store instance and re-renders
+ * whenever store.emit() fires.
+ */
+export function useStore(): Store {
+  useSyncExternalStore(store.subscribe, store.getSnapshot, store.getSnapshot);
+  return store;
+}

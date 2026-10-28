@@ -8,7 +8,7 @@ import {
   Alert,
 } from "react-native";
 import { useRouter } from "expo-router";
-import { store } from "../lib/store";
+import { store, useStore } from "../lib/store";
 
 function ServerIcon({ name, icon }: { name: string; icon?: string }) {
   if (icon) {
@@ -22,6 +22,7 @@ function ServerIcon({ name, icon }: { name: string; icon?: string }) {
 }
 
 export default function ServersScreen() {
+  useStore();
   const router = useRouter();
   const [creating, setCreating] = useState(false);
   const [newName, setNewName] = useState("");

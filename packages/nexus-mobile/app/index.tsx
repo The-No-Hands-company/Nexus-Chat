@@ -4,9 +4,10 @@
  * is handled by app/_layout.tsx which redirects based on auth state.
  */
 import { Redirect } from "expo-router";
-import { store } from "./lib/store";
+import { store, useStore } from "./lib/store";
 
 export default function Index() {
+  useStore();
   if (store.isAuthenticated) {
     return <Redirect href="/(tabs)" />;
   }

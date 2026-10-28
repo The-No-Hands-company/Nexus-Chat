@@ -7,7 +7,7 @@ import {
   Alert, TextInput, Modal, ActivityIndicator,
 } from "react-native";
 import { useRouter } from "expo-router";
-import { store } from "../lib/store";
+import { store, useStore } from "../lib/store";
 import { api, getServerUrlPlaceholder } from "../lib/api";
 import { gateway } from "../lib/gateway";
 
@@ -25,6 +25,7 @@ const pd = StyleSheet.create({
 });
 
 export default function ProfileScreen() {
+  useStore();
   const router = useRouter();
   const user = store.session?.user;
   const [showChangePw, setShowChangePw] = useState(false);

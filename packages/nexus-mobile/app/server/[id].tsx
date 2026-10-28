@@ -8,13 +8,14 @@ import {
   ScrollView,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { store } from "../lib/store";
+import { store, useStore } from "../lib/store";
 
 const CHANNEL_ICONS: Record<string, string> = {
   text: "#", voice: "V", announcement: "!", forum: "F", stage: "S", default: "#",
 };
 
 export default function ServerScreen() {
+  useStore();
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const [creatingChannel, setCreatingChannel] = useState(false);

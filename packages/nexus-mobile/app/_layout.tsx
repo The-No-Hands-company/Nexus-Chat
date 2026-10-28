@@ -37,6 +37,8 @@ export default function RootLayout() {
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
       <Stack.Screen name="server/[id]" options={{ headerShown: false }} />
       <Stack.Screen name="channel/[id]" options={{ headerShown: false }} />
+      <Stack.Screen name="voice/[id]" options={{ headerShown: false }} />
+      <Stack.Screen name="thread/[threadId]" options={{ headerShown: false }} />
     </Stack>
   );
 }

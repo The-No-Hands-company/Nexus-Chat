@@ -150,4 +150,4 @@ panic = "abort"
 
 [profile.dev]
 opt-level = 0
-debug = true
+debug = "line-tables-only"  # line numbers only — shrinks binary ~5x, much faster links; use CARGO_PROFILE_DEV_DEBUG=true for full symbols

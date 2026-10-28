@@ -8,7 +8,7 @@ import {
   ActivityIndicator, Dimensions,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { store } from "../lib/store";
+import { store, useStore } from "../lib/store";
 import type { Message } from "../lib/api";
 
 const EMOJI_SHORTCUTS = ["👍", "❤️", "😂", "😮", "😢", "🔥"];
@@ -98,6 +98,7 @@ function TypingIndicator({ channelId }: { channelId: string }) {
 }
 
 export default function ChannelScreen() {
+  useStore();
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const [input, setInput] = useState("");
