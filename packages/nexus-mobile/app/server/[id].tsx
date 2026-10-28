@@ -9,10 +9,45 @@ import {
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { store, useStore } from "../lib/store";
+import type { ServerMember } from "../lib/api";
 
 const CHANNEL_ICONS: Record<string, string> = {
   text: "#", voice: "V", announcement: "!", forum: "F", stage: "S", default: "#",
 };
+
+const PRESENCE_COLOR: Record<string, string> = {
+  online: "#57f287", idle: "#fee75c", do_not_disturb: "#ed4245",
+  dnd: "#ed4245", invisible: "#72767d", offline: "#72767d",
+};
+
+function MemberRow({ member }: { member: ServerMember }) {
+  const color = PRESENCE_COLOR[member.presence] ?? "#72767d";
+  const name = member.nickname ?? member.displayName ?? member.username;
+  return (
+    <View style={ms.row}>
+      <View style={ms.avatar}>
+        <Text style={ms.avatarText}>{name[0]?.toUpperCase()}</Text>
+        <View style={[ms.dot, { backgroundColor: color }]} />
+      </View>
+      <View style={ms.info}>
+        <Text style={ms.name} numberOfLines={1}>{name}</Text>
+        {member.nickname && (
+          <Text style={ms.sub} numberOfLines={1}>@{member.username}</Text>
+        )}
+      </View>
+    </View>
+  );
+}
+
+const ms = StyleSheet.create({
+  row: { flexDirection: "row", alignItems: "center", padding: 10, borderRadius: 8, marginBottom: 2 },
+  avatar: { width: 36, height: 36, borderRadius: 18, backgroundColor: "#112544", justifyContent: "center", alignItems: "center", marginRight: 10, position: "relative" },
+  avatarText: { color: "#27c9a5", fontSize: 15, fontWeight: "700" },
+  dot: { position: "absolute", bottom: 0, right: 0, width: 10, height: 10, borderRadius: 5, borderWidth: 2, borderColor: "#030a14" },
+  info: { flex: 1, minWidth: 0 },
+  name: { color: "#d6f4ff", fontSize: 14, fontWeight: "600" },
+  sub: { color: "#7890b0", fontSize: 12 },
+});
 
 export default function ServerScreen() {
   useStore();
@@ -21,11 +56,13 @@ export default function ServerScreen() {
   const [creatingChannel, setCreatingChannel] = useState(false);
   const [newChannelName, setNewChannelName] = useState("");
   const [newChannelType, setNewChannelType] = useState<"text" | "voice">("text");
+  const [showMembers, setShowMembers] = useState(false);
 
   useEffect(() => {
     if (id && store.activeServerId !== id) {
       store.selectServer(id);
     }
+    if (id) store.loadMembers(id);
   }, [id]);
 
   const server = store.servers.find(s => s.id === id);
@@ -60,6 +97,9 @@ export default function ServerScreen() {
           <Text style={styles.backBtnText}>Back</Text>
         </Pressable>
         <Text style={styles.serverName} numberOfLines={1}>{server?.name ?? "Server"}</Text>
+        <Pressable onPress={() => setShowMembers(true)} style={styles.addBtn}>
+          <Text style={styles.addBtnText}>👥</Text>
+        </Pressable>
         <Pressable onPress={() => setCreatingChannel(true)} style={styles.addBtn}>
           <Text style={styles.addBtnText}>+</Text>
         </Pressable>
@@ -101,6 +141,29 @@ export default function ServerScreen() {
           </View>
         }
       />
+
+      {/* Members modal */}
+      <Modal visible={showMembers} animationType="slide" presentationStyle="pageSheet">
+        <SafeAreaView style={styles.container}>
+          <View style={styles.header}>
+            <Text style={[styles.serverName, { flex: 1 }]}>Members ({(store.members[id ?? ""] ?? []).length})</Text>
+            <Pressable onPress={() => setShowMembers(false)} style={styles.addBtn}>
+              <Text style={styles.backBtnText}>Done</Text>
+            </Pressable>
+          </View>
+          <FlatList
+            data={store.members[id ?? ""] ?? []}
+            keyExtractor={item => item.userId}
+            renderItem={({ item }) => <MemberRow member={item} />}
+            contentContainerStyle={{ padding: 8 }}
+            ListEmptyComponent={
+              <View style={{ alignItems: "center", paddingTop: 40 }}>
+                <Text style={{ color: "#9ec5d5" }}>No members loaded</Text>
+              </View>
+            }
+          />
+        </SafeAreaView>
+      </Modal>
 
       <Modal visible={creatingChannel} animationType="slide" transparent>
         <View style={styles.modalOverlay}>
