@@ -5,7 +5,7 @@ import React, { useEffect, useRef, useState, useCallback } from "react";
 import {
   View, Text, FlatList, TextInput, Pressable, StyleSheet,
   SafeAreaView, KeyboardAvoidingView, Platform, Alert,
-  ActivityIndicator, Dimensions,
+  ActivityIndicator, Modal, Clipboard,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { store, useStore } from "../lib/store";
@@ -22,31 +22,29 @@ function formatTime(iso: string) {
   return d.toLocaleDateString();
 }
 
-function MessageItem({
-  msg,
-  onReact,
-  onReply,
-  onLongPress,
-}: {
+interface MessageItemProps {
   msg: Message;
   onReact: (emoji: string) => void;
   onReply: () => void;
   onLongPress: () => void;
-}) {
+}
+
+function MessageItem({ msg, onReact, onReply, onLongPress }: MessageItemProps) {
   const [showReactions, setShowReactions] = useState(false);
+  const isOwn = msg.authorId === store.session?.user.id;
 
   return (
     <Pressable
-      onLongPress={() => { setShowReactions(!showReactions); onLongPress(); }}
-      style={msg.authorId === store.session?.user.id ? styles.myMessage : styles.otherMessage}
+      onLongPress={() => { setShowReactions(false); onLongPress(); }}
+      style={isOwn ? styles.myMessage : styles.otherMessage}
     >
-      {msg.authorId !== store.session?.user.id && (
+      {!isOwn && (
         <View style={styles.avatar}>
           <Text style={styles.avatarText}>{msg.authorUsername[0]?.toUpperCase()}</Text>
         </View>
       )}
       <View style={styles.messageContent}>
-        {msg.authorId !== store.session?.user.id && (
+        {!isOwn && (
           <Text style={styles.authorName}>{msg.authorUsername}</Text>
         )}
         {msg.replyTo && (
@@ -55,6 +53,7 @@ function MessageItem({
           </View>
         )}
         {msg.content ? <Text style={styles.messageText}>{msg.content}</Text> : null}
+        {msg.editedAt ? <Text style={styles.editedLabel}>(edited)</Text> : null}
         {msg.embeds?.map((e, i) => (
           <View key={i} style={styles.embed}>
             {e.title ? <Text style={styles.embedTitle}>{e.title}</Text> : null}
@@ -72,11 +71,16 @@ function MessageItem({
             ))}
           </View>
         )}
-        <Text style={styles.timestamp}>{formatTime(msg.createdAt)}</Text>
+        <View style={styles.messageFooter}>
+          <Text style={styles.timestamp}>{formatTime(msg.createdAt)}</Text>
+          <Pressable onPress={() => { setShowReactions(v => !v); }} style={styles.emojiBtn}>
+            <Text style={styles.emojiBtnText}>+</Text>
+          </Pressable>
+        </View>
       </View>
 
       {showReactions && (
-        <View style={styles.quickReactions}>
+        <View style={[styles.quickReactions, isOwn && styles.quickReactionsLeft]}>
           {EMOJI_SHORTCUTS.map(emoji => (
             <Pressable key={emoji} onPress={() => { onReact(emoji); setShowReactions(false); }} style={styles.quickReaction}>
               <Text style={styles.quickReactionText}>{emoji}</Text>
@@ -106,6 +110,12 @@ export default function ChannelScreen() {
   const [replyTo, setReplyTo] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const flatListRef = useRef<FlatList>(null);
+
+  // Message context menu
+  const [contextMsg, setContextMsg] = useState<Message | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editInput, setEditInput] = useState("");
+  const [editLoading, setEditLoading] = useState(false);
 
   const channel = store.channels.find(c => c.id === id) ?? store.dmChannels.find(c => c.id === id);
   const messages = (id ? store.messages[id] : []) ?? [];
@@ -142,26 +152,88 @@ export default function ChannelScreen() {
     }
   }
 
-  function handleReply(msg: Message) {
-    setReplyTo(msg.id);
-    // Could also show preview of replied message
-  }
-
   function handleLoadMore() {
     if (id) store.loadOlderMessages().catch(console.error);
   }
+
+  function openContext(msg: Message) {
+    setContextMsg(msg);
+  }
+
+  function closeContext() {
+    setContextMsg(null);
+  }
+
+  function handleContextReply() {
+    if (!contextMsg) return;
+    setReplyTo(contextMsg.id);
+    closeContext();
+  }
+
+  function handleContextCopy() {
+    if (!contextMsg) return;
+    Clipboard.setString(contextMsg.content ?? "");
+    closeContext();
+  }
+
+  function handleContextEdit() {
+    if (!contextMsg) return;
+    setEditingId(contextMsg.id);
+    setEditInput(contextMsg.content ?? "");
+    closeContext();
+  }
+
+  async function handleContextDelete() {
+    if (!contextMsg) return;
+    closeContext();
+    Alert.alert(
+      "Delete message",
+      "This cannot be undone.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete", style: "destructive",
+          onPress: async () => {
+            try {
+              await store.api.deleteMessage(contextMsg.id);
+              if (id) store.onMessageDelete(id, contextMsg.id);
+            } catch (e: any) {
+              Alert.alert("Error", e.message);
+            }
+          },
+        },
+      ],
+    );
+  }
+
+  async function handleSaveEdit() {
+    if (!editingId || !editInput.trim()) return;
+    setEditLoading(true);
+    try {
+      const updated = await store.api.editMessage(editingId, editInput.trim());
+      if (id) store.onMessageUpdate(updated);
+      setEditingId(null);
+      setEditInput("");
+    } catch (e: any) {
+      Alert.alert("Error", e.message);
+    } finally {
+      setEditLoading(false);
+    }
+  }
+
+  const isOwn = (msg: Message) => msg.authorId === store.session?.user.id;
 
   const renderMessage = useCallback(({ item }: { item: Message }) => (
     <MessageItem
       msg={item}
       onReact={(emoji) => handleReact(item.id, emoji)}
-      onReply={() => handleReply(item)}
-      onLongPress={() => {}}
+      onReply={() => setReplyTo(item.id)}
+      onLongPress={() => openContext(item)}
     />
   ), [messages]);
 
   const channelName = channel
-    ? ("name" in channel ? channel.name : "DM")
+    ? ("name" in channel ? (channel as any).name ?? "DM" : "DM")
     : "Channel";
 
   return (
@@ -173,11 +245,11 @@ export default function ChannelScreen() {
         </Pressable>
         <View style={styles.headerTitleArea}>
           <Text style={styles.headerTitle}>{channelName}</Text>
-          {channel && "topic" in channel && channel.topic ? (
-            <Text style={styles.headerTopic} numberOfLines={1}>{channel.topic}</Text>
+          {channel && "topic" in channel && (channel as any).topic ? (
+            <Text style={styles.headerTopic} numberOfLines={1}>{(channel as any).topic}</Text>
           ) : null}
         </View>
-        {channel && "isE2ee" in channel && channel.isE2ee ? (
+        {channel && "isE2ee" in channel && (channel as any).isE2ee ? (
           <Text style={styles.e2eeBadge}>E2EE</Text>
         ) : null}
       </View>
@@ -204,11 +276,23 @@ export default function ChannelScreen() {
       <TypingIndicator channelId={id ?? ""} />
 
       {/* Reply bar */}
-      {replyTo && (
+      {replyTo && !editingId && (
         <View style={styles.replyBar}>
-          <Text style={styles.replyBarText}>Replying to a message</Text>
+          <Text style={styles.replyBarText}>
+            Replying to: {messages.find(m => m.id === replyTo)?.authorUsername ?? "message"}
+          </Text>
           <Pressable onPress={() => setReplyTo(null)}>
-            <Text style={styles.replyBarClose}>X</Text>
+            <Text style={styles.replyBarClose}>✕</Text>
+          </Pressable>
+        </View>
+      )}
+
+      {/* Edit bar */}
+      {editingId && (
+        <View style={styles.editBar}>
+          <Text style={styles.editBarLabel}>Editing message</Text>
+          <Pressable onPress={() => { setEditingId(null); setEditInput(""); }}>
+            <Text style={styles.replyBarClose}>✕</Text>
           </Pressable>
         </View>
       )}
@@ -222,10 +306,10 @@ export default function ChannelScreen() {
           <View style={styles.inputRow}>
             <TextInput
               style={styles.input}
-              placeholder={channelName !== "DM" ? ("Message #" + channelName) : "Message..."}
+              placeholder={editingId ? "Edit message…" : (channelName !== "DM" ? ("Message #" + channelName) : "Message…")}
               placeholderTextColor="#7890b0"
-              value={input}
-              onChangeText={(text) => {
+              value={editingId ? editInput : input}
+              onChangeText={editingId ? setEditInput : (text) => {
                 setInput(text);
                 if (!typingTimerRef.current && id) {
                   store.sendTyping(id).catch(() => {});
@@ -236,18 +320,50 @@ export default function ChannelScreen() {
               }}
               multiline
               maxLength={4000}
-              onSubmitEditing={handleSend}
             />
-            <Pressable onPress={handleSend} style={styles.sendBtn} disabled={loading || !input.trim()}>
-              {loading ? (
+            <Pressable
+              onPress={editingId ? handleSaveEdit : handleSend}
+              style={[styles.sendBtn, editingId && styles.editBtn]}
+              disabled={(editingId ? editLoading || !editInput.trim() : loading || !input.trim())}
+            >
+              {(editingId ? editLoading : loading) ? (
                 <ActivityIndicator color="#062020" size="small" />
               ) : (
-                <Text style={[styles.sendBtnText, !input.trim() && styles.sendBtnDisabled]}>Send</Text>
+                <Text style={styles.sendBtnText}>{editingId ? "Save" : "Send"}</Text>
               )}
             </Pressable>
           </View>
         </View>
       </KeyboardAvoidingView>
+
+      {/* Message context menu */}
+      <Modal visible={!!contextMsg} transparent animationType="fade" onRequestClose={closeContext}>
+        <Pressable style={styles.contextOverlay} onPress={closeContext}>
+          <View style={styles.contextMenu}>
+            <Text style={styles.contextPreview} numberOfLines={2}>
+              {contextMsg?.content || "📎 Attachment"}
+            </Text>
+            <View style={styles.contextDivider} />
+
+            <Pressable style={styles.contextItem} onPress={handleContextReply}>
+              <Text style={styles.contextItemText}>Reply</Text>
+            </Pressable>
+            <Pressable style={styles.contextItem} onPress={handleContextCopy}>
+              <Text style={styles.contextItemText}>Copy text</Text>
+            </Pressable>
+            {contextMsg && isOwn(contextMsg) && (
+              <>
+                <Pressable style={styles.contextItem} onPress={handleContextEdit}>
+                  <Text style={styles.contextItemText}>Edit</Text>
+                </Pressable>
+                <Pressable style={styles.contextItem} onPress={handleContextDelete}>
+                  <Text style={[styles.contextItemText, styles.contextItemDanger]}>Delete</Text>
+                </Pressable>
+              </>
+            )}
+          </View>
+        </Pressable>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -273,6 +389,7 @@ const styles = StyleSheet.create({
   replyIndicator: { borderLeftWidth: 2, borderLeftColor: "#27c9a5", paddingLeft: 6, marginBottom: 4 },
   replyText: { color: "#7890b0", fontSize: 11, fontStyle: "italic" },
   messageText: { color: "#d6f4ff", fontSize: 15, lineHeight: 20 },
+  editedLabel: { color: "#7890b0", fontSize: 10, fontStyle: "italic", marginTop: 2 },
   embed: { backgroundColor: "#112544", borderRadius: 8, padding: 10, marginTop: 6 },
   embedTitle: { color: "#27c9a5", fontWeight: "600", fontSize: 14, marginBottom: 4 },
   embedDesc: { color: "#9ec5d5", fontSize: 13 },
@@ -283,18 +400,32 @@ const styles = StyleSheet.create({
   reactionEmoji: { fontSize: 14 },
   reactionCount: { color: "#7890b0", fontSize: 12, marginLeft: 4 },
   reactionCountMe: { color: "#27c9a5" },
-  timestamp: { color: "#7890b0", fontSize: 10, marginTop: 4, alignSelf: "flex-end" },
-  quickReactions: { position: "absolute", bottom: -30, right: 0, flexDirection: "row", backgroundColor: "#0b1a30", borderRadius: 20, padding: 4, gap: 4 },
+  messageFooter: { flexDirection: "row", alignItems: "center", justifyContent: "flex-end", marginTop: 4, gap: 6 },
+  timestamp: { color: "#7890b0", fontSize: 10 },
+  emojiBtn: { paddingHorizontal: 4 },
+  emojiBtnText: { color: "#7890b0", fontSize: 14, fontWeight: "700" },
+  quickReactions: { position: "absolute", bottom: -36, right: 0, flexDirection: "row", backgroundColor: "#0b1a30", borderRadius: 20, padding: 4, gap: 4, zIndex: 10 },
+  quickReactionsLeft: { right: undefined, left: 0 },
   quickReaction: { padding: 4 },
   quickReactionText: { fontSize: 18 },
   typingIndicator: { color: "#7890b0", fontSize: 12, fontStyle: "italic", paddingHorizontal: 12, paddingVertical: 2 },
   replyBar: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", backgroundColor: "#0f2040", paddingHorizontal: 12, paddingVertical: 6 },
-  replyBarText: { color: "#9ec5d5", fontSize: 13 },
-  replyBarClose: { color: "#7890b0", fontSize: 14, fontWeight: "700" },
+  replyBarText: { color: "#9ec5d5", fontSize: 13, flex: 1 },
+  replyBarClose: { color: "#7890b0", fontSize: 14, fontWeight: "700", paddingLeft: 8 },
+  editBar: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", backgroundColor: "#112544", paddingHorizontal: 12, paddingVertical: 6 },
+  editBarLabel: { color: "#27c9a5", fontSize: 13, fontWeight: "600", flex: 1 },
   composer: { backgroundColor: "#071327", paddingHorizontal: 8, paddingVertical: 8, borderTopWidth: 1, borderTopColor: "#0f2040" },
   inputRow: { flexDirection: "row", alignItems: "flex-end", backgroundColor: "#112544", borderRadius: 20, paddingHorizontal: 14, paddingVertical: 8 },
   input: { flex: 1, color: "#d6f4ff", fontSize: 15, maxHeight: 120 },
   sendBtn: { marginLeft: 8, backgroundColor: "#27c9a5", borderRadius: 14, paddingHorizontal: 14, paddingVertical: 6 },
+  editBtn: { backgroundColor: "#7c6af7" },
   sendBtnText: { color: "#062020", fontWeight: "700", fontSize: 14 },
-  sendBtnDisabled: { opacity: 0.4 },
+  // Context menu
+  contextOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.6)", justifyContent: "center", alignItems: "center", padding: 20 },
+  contextMenu: { backgroundColor: "#0b1a30", borderRadius: 16, width: "100%", overflow: "hidden" },
+  contextPreview: { color: "#9ec5d5", fontSize: 13, padding: 16, fontStyle: "italic" },
+  contextDivider: { height: 1, backgroundColor: "#0f2040" },
+  contextItem: { paddingHorizontal: 20, paddingVertical: 16 },
+  contextItemText: { color: "#d6f4ff", fontSize: 16 },
+  contextItemDanger: { color: "#ed4245" },
 });

@@ -7,7 +7,7 @@ import {
   SafeAreaView, Switch, Alert, Modal, ActivityIndicator, ScrollView
 } from "react-native";
 import { useRouter } from "expo-router";
-import { store, api } from "../lib/store";
+import { store, useStore, api } from "../lib/store";
 
 function nextOption(current: string, options: string[]): string {
   if (!options.length) return current;
@@ -60,6 +60,7 @@ interface DangerSettingItem extends SettingBaseItem {
 type SettingItem = ToggleSettingItem | SelectSettingItem | TextSettingItem | ButtonSettingItem | DangerSettingItem;
 
 export default function SettingsScreen() {
+  useStore();
   const router = useRouter();
   const [activeModal, setActiveModal] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
