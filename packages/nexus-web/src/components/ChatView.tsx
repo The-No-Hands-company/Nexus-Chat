@@ -13,6 +13,7 @@ export default function ChatView() {
   const {
     session,
     channels,
+    dmChannels,
     messages,
     loadMessages,
     loadMoreMessages,
@@ -24,7 +25,8 @@ export default function ChatView() {
   } = useStore();
 
   const channelMessages = channelId ? (messages[channelId] ?? []) : [];
-  const channel = channels.find((c) => c.id === channelId);
+  const channel = channels.find((c) => c.id === channelId)
+    ?? dmChannels.find((c) => c.id === channelId);
   const typingUsers = channelId ? (typing[channelId] ?? []) : [];
 
   const [draft, setDraft] = useState("");

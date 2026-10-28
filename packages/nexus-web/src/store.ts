@@ -174,6 +174,13 @@ export interface NxUser {
 
 export type GatewayStatus = "offline" | "connecting" | "online";
 
+export interface NxUserSearchResult {
+  id: string;
+  username: string;
+  display_name: string | null;
+  avatar: string | null;
+}
+
 // ── API helpers ───────────────────────────────────────────────────────────────
 
 export function apiBase(_session: Session | null): string {
@@ -313,6 +320,7 @@ interface Store {
   cancelAccountDeletion: () => Promise<void>;
   joinServer: (inviteCode: string) => Promise<NxServer>;
   createDm: (userId: string) => Promise<NxChannel>;
+  searchUsers: (query: string) => Promise<NxUserSearchResult[]>;
   sendTyping: (channelId: string) => Promise<void>;
 }
 
@@ -541,12 +549,24 @@ export const useStore = create<Store>()(
       createDm: async (userId) => {
         const { session } = get();
         if (!session) throw new Error('Not authenticated');
-        const dm = await apiFetch<NxChannel>(session, '/channels/@me/dms', {
+        const dm = await apiFetch<NxChannel>(session, '/users/@me/channels', {
           method: 'POST',
           body: JSON.stringify({ recipient_id: userId }),
         });
         set((st) => ({ dmChannels: st.dmChannels.some(d => d.id === dm.id) ? st.dmChannels : [dm, ...st.dmChannels] }));
         return dm;
+      },
+
+      searchUsers: async (query) => {
+        const { session } = get();
+        if (!session || !query.trim()) return [];
+        try {
+          const data = await apiFetch<NxUserSearchResult[]>(
+            session,
+            `/users/search?q=${encodeURIComponent(query)}`,
+          );
+          return Array.isArray(data) ? data : [];
+        } catch { return []; }
       },
 
       sendTyping: async (channelId) => {

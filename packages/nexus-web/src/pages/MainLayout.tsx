@@ -8,6 +8,7 @@ import ServerList from "../components/ServerList";
 import { useVoice } from "../hooks/useVoice";
 import ChannelList from "../components/ChannelList";
 import ChatView from "../components/ChatView";
+import MessagesLayout from "../components/MessagesLayout";
 import { isEmbedded, shouldShowNotifBanner } from "../embed";
 
 const SettingsPanel   = lazy(() => import("../components/SettingsPanel"));
@@ -32,6 +33,8 @@ export default function MainLayout() {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   const location = useLocation();
+  const isMessaging = location.pathname.startsWith("/messages");
+
   useEffect(() => {
     setMobileNavOpen(false);
   }, [location.pathname]);
@@ -159,46 +162,56 @@ export default function MainLayout() {
         onOpenJoin={() => setShowJoin(true)}
       />
 
-      {/* Column 2 — channel panel
-          Mobile: fixed overlay starting at the rail edge (left-14 = 56px).
-          Slides in/out via translateX. sm+: static layout column. */}
-      <div
-        id="channel-panel"
-        className={clsx(
-          "flex flex-col h-full",
-          "fixed left-14 top-0 bottom-0 z-50 transition-transform duration-200 ease-out",
-          "sm:static sm:z-auto sm:translate-x-0",
-          mobileNavOpen ? "translate-x-0" : "-translate-x-full"
-        )}
-      >
-        <ChannelList voice={voice} />
-      </div>
-
-      {/* Column 3 — main content */}
-      <div id="main-content" role="main" className="flex flex-col flex-1 min-w-0">
-        {/* Mobile hamburger: shows only on phone, opens channel panel */}
-        <div className="flex items-center gap-2 px-3 py-2 border-b border-bg-600/40 shrink-0 sm:hidden bg-bg-800">
-          <button
-            type="button"
-            onClick={() => setMobileNavOpen(true)}
-            aria-label="Open channels"
-            aria-controls="channel-panel"
-            aria-expanded={mobileNavOpen}
-            className="text-muted hover:text-fg p-1.5 rounded hover:bg-bg-600 transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-500"
-          >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-              <path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/>
-            </svg>
-          </button>
-          <span className="text-sm font-medium text-muted">Channels</span>
-        </div>
-
+      {/* Columns 2+3 — messaging inbox OR discord channel layout */}
+      {isMessaging ? (
         <Routes>
-          <Route path="/" element={<EmptyState />} />
-          <Route path="/channel/:channelId" element={<ChatView />} />
-          <Route path="*" element={<EmptyState />} />
+          <Route path="/messages" element={<MessagesLayout />} />
+          <Route path="/messages/:channelId" element={<MessagesLayout />} />
         </Routes>
-      </div>
+      ) : (
+        <>
+          {/* Column 2 — channel panel
+              Mobile: fixed overlay starting at the rail edge (left-14 = 56px).
+              Slides in/out via translateX. sm+: static layout column. */}
+          <div
+            id="channel-panel"
+            className={clsx(
+              "flex flex-col h-full",
+              "fixed left-14 top-0 bottom-0 z-50 transition-transform duration-200 ease-out",
+              "sm:static sm:z-auto sm:translate-x-0",
+              mobileNavOpen ? "translate-x-0" : "-translate-x-full"
+            )}
+          >
+            <ChannelList voice={voice} />
+          </div>
+
+          {/* Column 3 — main content */}
+          <div id="main-content" role="main" className="flex flex-col flex-1 min-w-0">
+            {/* Mobile hamburger: shows only on phone, opens channel panel */}
+            <div className="flex items-center gap-2 px-3 py-2 border-b border-bg-600/40 shrink-0 sm:hidden bg-bg-800">
+              <button
+                type="button"
+                onClick={() => setMobileNavOpen(true)}
+                aria-label="Open channels"
+                aria-controls="channel-panel"
+                aria-expanded={mobileNavOpen}
+                className="text-muted hover:text-fg p-1.5 rounded hover:bg-bg-600 transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-500"
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                  <path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/>
+                </svg>
+              </button>
+              <span className="text-sm font-medium text-muted">Channels</span>
+            </div>
+
+            <Routes>
+              <Route path="/" element={<EmptyState />} />
+              <Route path="/channel/:channelId" element={<ChatView />} />
+              <Route path="*" element={<EmptyState />} />
+            </Routes>
+          </div>
+        </>
+      )}
 
       {/* Modals */}
       <Suspense fallback={null}>

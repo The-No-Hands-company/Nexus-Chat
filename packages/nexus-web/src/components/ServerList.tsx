@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useStore } from "../store";
 import clsx from "clsx";
@@ -16,6 +16,7 @@ export default function ServerList({ onOpenSettings, onOpenJoin }: Props) {
     session, setSession, loadDms, gatewayStatus,
   } = useStore();
   const navigate = useNavigate();
+  const location = useLocation();
   const [creating, setCreating] = useState(false);
   const [newName, setNewName] = useState("");
   const [homeMode, setHomeMode] = useState(false);
@@ -33,6 +34,14 @@ export default function ServerList({ onOpenSettings, onOpenJoin }: Props) {
     loadDms();
     navigate("/");
   };
+
+  const handleMessages = () => {
+    setHomeMode(false);
+    setActiveServer(null);
+    navigate("/messages");
+  };
+
+  const isMessaging = location.pathname.startsWith("/messages");
 
   const handleCreate = async () => {
     if (!newName.trim()) return;
@@ -62,9 +71,16 @@ export default function ServerList({ onOpenSettings, onOpenJoin }: Props) {
       </div>
 
       {/* Home / DMs */}
-      <SpaceBtn active={homeMode} title={t("server.home")} onClick={handleHome}>
+      <SpaceBtn active={homeMode && !isMessaging} title={t("server.home")} onClick={handleHome}>
         <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
           <path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/>
+        </svg>
+      </SpaceBtn>
+
+      {/* Messages inbox */}
+      <SpaceBtn active={isMessaging} title="Messages" onClick={handleMessages}>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-2 12H6v-2h12v2zm0-3H6V9h12v2zm0-3H6V6h12v2z"/>
         </svg>
       </SpaceBtn>
 
