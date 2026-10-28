@@ -1,7 +1,9 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
-const DEFAULT_SERVER_URL = import.meta.env.DEV ? "http://localhost:8080" : "";
+// In dev, default to "" so requests go through the Vite proxy (which injects
+// x-nexus-identity). Set VITE_DIRECT_API=http://localhost:8080 to bypass.
+const DEFAULT_SERVER_URL = import.meta.env.VITE_DIRECT_API ?? "";
 
 function normalizeServerUrl(url: string): string {
   return url.trim().replace(/\/$/, "").replace(/\/api\/v1$/, "");
@@ -32,7 +34,7 @@ function currentServerOrigin(): string {
 }
 
 export function getServerUrlPlaceholder(): string {
-  return import.meta.env.DEV ? "http://localhost:8080" : "https://your-nexus-server.com";
+  return import.meta.env.DEV ? "http://localhost:5174" : "https://your-nexus-server.com";
 }
 
 function orderMessages(messages: NxMessage[]): NxMessage[] {
