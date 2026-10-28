@@ -225,6 +225,7 @@ async fn search_users(
     .fetch_all(&state.db.pool)
     .await?;
 
+    use sqlx::Row;
     let users: Vec<serde_json::Value> = rows
         .iter()
         .map(|row| {
