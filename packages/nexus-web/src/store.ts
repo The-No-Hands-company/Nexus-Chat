@@ -303,6 +303,7 @@ interface Store {
   sendMessage: (channelId: string, content: string, replyTo?: string) => Promise<void>;
   addReaction: (channelId: string, messageId: string, emoji: string) => Promise<void>;
   deleteMessage: (channelId: string, messageId: string) => Promise<void>;
+  editMessage: (channelId: string, messageId: string, content: string) => Promise<void>;
   createServer: (name: string) => Promise<NxServer>;
   createChannel: (serverId: string, name: string, kind: string) => Promise<NxChannel>;
 
@@ -474,6 +475,23 @@ export const useStore = create<Store>()(
           messages: {
             ...st.messages,
             [channelId]: (st.messages[channelId] ?? []).filter((m) => m.id !== messageId),
+          },
+        }));
+      },
+
+      editMessage: async (channelId, messageId, content) => {
+        const s = get().session;
+        if (!s) return;
+        const updated = await apiFetch<NxMessage>(s, `/channels/${channelId}/messages/${messageId}`, {
+          method: "PATCH",
+          body: JSON.stringify({ content }),
+        });
+        set((st) => ({
+          messages: {
+            ...st.messages,
+            [channelId]: (st.messages[channelId] ?? []).map((m) =>
+              m.id === messageId ? { ...m, content: updated.content, edited_at: updated.edited_at } : m
+            ),
           },
         }));
       },

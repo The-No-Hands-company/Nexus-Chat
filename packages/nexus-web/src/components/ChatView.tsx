@@ -19,6 +19,7 @@ export default function ChatView() {
     loadMoreMessages,
     sendMessage,
     deleteMessage,
+    editMessage,
     addReaction,
     markRead,
     typing,
@@ -34,6 +35,8 @@ export default function ChatView() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editDraft, setEditDraft] = useState("");
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -89,6 +92,18 @@ export default function ChatView() {
     }
     if (e.key === "Escape" && replyTo) {
       setReplyTo(null);
+    }
+  }
+
+  async function handleSaveEdit(messageId: string) {
+    if (!channelId || !editDraft.trim()) return;
+    try {
+      await editMessage(channelId, messageId, editDraft.trim());
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setEditingId(null);
+      setEditDraft("");
     }
   }
 
@@ -190,6 +205,12 @@ export default function ChatView() {
             onOpenProfile={(uid, uname, ava, rect) =>
               setPopover(p => p?.userId === uid ? null : { userId: uid, username: uname, avatar: ava, rect })
             }
+            editingId={editingId}
+            editDraft={editDraft}
+            onEditDraftChange={setEditDraft}
+            onStartEdit={(id, content) => { setEditingId(id); setEditDraft(content); }}
+            onSaveEdit={handleSaveEdit}
+            onCancelEdit={() => { setEditingId(null); setEditDraft(""); }}
           />
         ))}
 
@@ -325,6 +346,12 @@ function MessageGroup({
   onDelete,
   onReact,
   onOpenProfile,
+  editingId,
+  editDraft,
+  onEditDraftChange,
+  onStartEdit,
+  onSaveEdit,
+  onCancelEdit,
 }: {
   messages: NxMessage[];
   currentUserId: string;
@@ -332,6 +359,12 @@ function MessageGroup({
   onDelete: (id: string) => Promise<void>;
   onReact: (id: string, emoji: string) => Promise<void>;
   onOpenProfile: (userId: string, username: string, avatar: string | null, rect: DOMRect) => void;
+  editingId: string | null;
+  editDraft: string;
+  onEditDraftChange: (v: string) => void;
+  onStartEdit: (id: string, content: string) => void;
+  onSaveEdit: (id: string) => Promise<void>;
+  onCancelEdit: () => void;
 }) {
   const { t } = useTranslation();
   const first = messages[0];
@@ -381,9 +414,32 @@ function MessageGroup({
             onMouseEnter={() => setHoveredId(msg.id)}
             onMouseLeave={() => setHoveredId(null)}
           >
-            <p className="text-sm text-fg leading-relaxed break-words whitespace-pre-wrap">
-              {msg.content}
-            </p>
+            {editingId === msg.id ? (
+              <div className="mt-0.5">
+                <textarea
+                  autoFocus
+                  value={editDraft}
+                  onChange={(e) => onEditDraftChange(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); onSaveEdit(msg.id); }
+                    if (e.key === "Escape") onCancelEdit();
+                  }}
+                  rows={2}
+                  className="w-full bg-bg-600 text-sm text-fg rounded px-2 py-1.5 resize-none outline-none focus:ring-1 focus:ring-accent-500/60 border border-bg-500/50"
+                  style={{ maxHeight: 120 }}
+                />
+                <div className="flex gap-2 mt-1 text-xs">
+                  <button onClick={() => onSaveEdit(msg.id)} className="text-accent-400 hover:text-accent-300 font-semibold">Save</button>
+                  <span className="text-muted">·</span>
+                  <button onClick={onCancelEdit} className="text-muted hover:text-fg">Cancel</button>
+                  <span className="text-muted italic ml-1">Enter to save · Esc to cancel</span>
+                </div>
+              </div>
+            ) : (
+              <p className="text-sm text-fg leading-relaxed break-words whitespace-pre-wrap">
+                {msg.content}
+              </p>
+            )}
 
             {/* Attachments */}
             {msg.attachments?.length > 0 && (
@@ -454,13 +510,22 @@ function MessageGroup({
                   ↩
                 </button>
                 {msg.author_id === currentUserId && (
-                  <button
-                    onClick={() => onDelete(msg.id)}
-                    className="text-[11px] text-red-400 hover:text-red-300 px-1 rounded hover:bg-bg-600 transition-colors"
-                    title="Delete"
-                  >
-                    🗑
-                  </button>
+                  <>
+                    <button
+                      onClick={() => onStartEdit(msg.id, msg.content)}
+                      className="text-[11px] text-muted hover:text-fg px-1 rounded hover:bg-bg-600 transition-colors"
+                      title="Edit"
+                    >
+                      ✏
+                    </button>
+                    <button
+                      onClick={() => onDelete(msg.id)}
+                      className="text-[11px] text-red-400 hover:text-red-300 px-1 rounded hover:bg-bg-600 transition-colors"
+                      title="Delete"
+                    >
+                      🗑
+                    </button>
+                  </>
                 )}
               </div>
             )}
