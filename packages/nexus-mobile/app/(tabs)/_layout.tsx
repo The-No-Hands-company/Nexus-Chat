@@ -20,9 +20,11 @@ export default function TabLayout() {
   useStore();
 
   useEffect(() => {
-    if (store.isAuthenticated) {
-      gateway.connect().catch(console.error);
-    }
+    if (!store.isAuthenticated) return;
+    // Load servers/DMs/relationships on every mount (covers app restore from
+    // storage where loadInitialData was never called after hydration).
+    store.loadInitialData().catch(console.error);
+    gateway.connect().catch(console.error);
     return () => gateway.disconnect();
   }, []);
 
