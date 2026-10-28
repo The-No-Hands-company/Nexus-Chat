@@ -53,7 +53,6 @@ pub fn router() -> Router<Arc<AppState>> {
             "/users/@me/relationships/{user_id}",
             axum::routing::patch(update_relationship).delete(delete_relationship),
         )
-        .route("/users/search", get(search_users))
         .route_layer(middleware::from_fn(
             crate::middleware::combined_auth_middleware,
         ))
@@ -74,8 +73,8 @@ struct UpdateRelationshipRequest {
 }
 
 #[derive(Debug, Deserialize)]
-struct SearchQuery {
-    q: String,
+pub(crate) struct SearchQuery {
+    pub(crate) q: String,
 }
 
 #[derive(Debug, Serialize)]
@@ -88,11 +87,11 @@ struct RelationshipResponse {
 }
 
 #[derive(Debug, Serialize)]
-struct UserBrief {
-    id: Uuid,
-    username: String,
-    display_name: Option<String>,
-    avatar: Option<String>,
+pub(crate) struct UserBrief {
+    pub(crate) id: Uuid,
+    pub(crate) username: String,
+    pub(crate) display_name: Option<String>,
+    pub(crate) avatar: Option<String>,
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -517,7 +516,7 @@ async fn delete_relationship(
 }
 
 /// GET /api/v1/users/search?q=<prefix> — search users by username prefix.
-async fn search_users(
+pub(crate) async fn search_users(
     Extension(auth): Extension<AuthContext>,
     headers: HeaderMap,
     State(state): State<Arc<AppState>>,

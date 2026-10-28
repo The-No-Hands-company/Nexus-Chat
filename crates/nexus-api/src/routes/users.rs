@@ -3,7 +3,7 @@
 use axum::http::HeaderMap;
 use axum::{
     Json, Router,
-    extract::{Extension, Path, Query, State},
+    extract::{Extension, Path, State},
     http::StatusCode,
     middleware,
     routing::{get, post},
@@ -35,7 +35,7 @@ pub fn router() -> Router<Arc<AppState>> {
         .route("/users/@me/cancel-deletion", post(cancel_account_deletion))
         .route("/users/@me/data-export", get(data_export))
         .route("/users/@me/note-to-self", get(get_note_to_self_channel))
-        .route("/users/search", get(search_users))
+        .route("/users/search", get(super::relationships::search_users))
         .route("/users/{user_id}", get(get_user))
         .route("/users/{user_id}/profile", get(get_user_profile))
         .route_layer(middleware::from_fn(
@@ -192,54 +192,6 @@ async fn get_user_profile(
 }
 
 // ── User search ───────────────────────────────────────────────────────────────
-
-#[derive(Deserialize)]
-struct UserSearchQuery {
-    q: String,
-}
-
-/// GET /api/v1/users/search?q=... — username prefix search for DM initiation.
-///
-/// Returns up to 10 users whose username or display_name matches the query.
-/// Used by the messaging inbox "new conversation" flow so users can find people
-/// by name rather than having to know their UUID.
-async fn search_users(
-    Extension(_auth): Extension<AuthContext>,
-    State(state): State<Arc<AppState>>,
-    Query(params): Query<UserSearchQuery>,
-) -> NexusResult<Json<serde_json::Value>> {
-    if params.q.trim().is_empty() {
-        return Ok(Json(serde_json::json!([])));
-    }
-    let escaped = params.q.replace('%', "\\%").replace('_', "\\_");
-    let pattern = format!("%{escaped}%");
-    let rows = sqlx::query(
-        "SELECT id::text, username, display_name, avatar \
-         FROM users \
-         WHERE scheduled_deletion_at IS NULL \
-           AND (username ILIKE $1 OR display_name ILIKE $1) \
-         ORDER BY username \
-         LIMIT 10",
-    )
-    .bind(&pattern)
-    .fetch_all(&state.db.pool)
-    .await?;
-
-    use sqlx::Row;
-    let users: Vec<serde_json::Value> = rows
-        .iter()
-        .map(|row| {
-            serde_json::json!({
-                "id":           row.try_get::<String, _>("id").unwrap_or_default(),
-                "username":     row.try_get::<String, _>("username").unwrap_or_default(),
-                "display_name": row.try_get::<Option<String>, _>("display_name").unwrap_or(None),
-                "avatar":       row.try_get::<Option<String>, _>("avatar").unwrap_or(None),
-            })
-        })
-        .collect();
-
-    Ok(Json(serde_json::json!(users)))
-}
 
 // ── Account lifecycle (09.7-04) ───────────────────────────────────────────────
 
