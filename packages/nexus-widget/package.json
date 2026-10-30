@@ -1,0 +1,14 @@
+{
+  "name": "@nexus/widget",
+  "version": "0.1.0",
+  "description": "Embeddable customer chat widget for Nexus-Hosting sites",
+  "type": "module",
+  "scripts": {
+    "build": "vite build",
+    "dev": "vite build --watch"
+  },
+  "devDependencies": {
+    "vite": "^5.0.0",
+    "typescript": "^5.3.0"
+  }
+}

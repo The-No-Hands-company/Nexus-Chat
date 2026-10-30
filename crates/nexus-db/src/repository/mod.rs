@@ -78,3 +78,6 @@ pub mod push_subscriptions;
 
 /// Phantom Protocol — post-quantum identity storage
 pub mod phantom;
+
+/// Widget endpoints — embeddable customer chat
+pub mod widget_endpoints;

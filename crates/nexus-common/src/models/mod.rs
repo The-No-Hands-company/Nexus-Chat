@@ -79,3 +79,7 @@ pub use sustainability::*;
 // v3.0 Phantom Protocol — Post-Quantum E2EE
 pub mod phantom;
 pub use phantom::*;
+
+// Widget endpoints — embeddable customer chat
+pub mod widget;
+pub use widget::*;

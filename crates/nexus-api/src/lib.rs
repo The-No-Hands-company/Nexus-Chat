@@ -216,6 +216,7 @@ pub fn build_router(state: AppState) -> Router {
         .merge(routes::admin::router()) // instance admin: users, servers, overview
         .merge(routes::admin_users::router()) // instance-admin user/server management
         .merge(routes::push::router()) // Web Push subscriptions + VAPID key
+        .merge(routes::widget::router()) // Widget endpoints — embeddable customer chat
         // Make Arc<AppState> available as an Axum Extension so that
         // `combined_auth_middleware` can perform DB lookups for bot tokens
         // without requiring `from_fn_with_state` on every sub-router.

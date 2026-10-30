@@ -97,3 +97,6 @@ pub mod push;
 
 /// Instance-admin user management (list, suspend, disable)
 pub mod admin_users;
+
+/// Widget endpoints — embeddable customer chat for Nexus-Hosting sites
+pub mod widget;
