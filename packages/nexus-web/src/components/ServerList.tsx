@@ -55,7 +55,7 @@ export default function ServerList({ onOpenSettings, onOpenJoin }: Props) {
 
   const gwColor =
     gatewayStatus === "online" ? "var(--nexus-color-state-success)"
-    : gatewayStatus === "connecting" ? "#facc15"
+    : gatewayStatus === "connecting" ? "var(--nexus-color-state-warning)"
     : "var(--nexus-color-state-danger)";
 
   return (
@@ -65,7 +65,7 @@ export default function ServerList({ onOpenSettings, onOpenJoin }: Props) {
     >
       {/* Nexus brand mark */}
       <div className="w-10 h-10 flex items-center justify-center shrink-0 mb-0.5" aria-hidden="true">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" style={{ color: "#ccff00" }}>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" style={{ color: "var(--nexus-color-accent-primary)" }}>
           <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
         </svg>
       </div>

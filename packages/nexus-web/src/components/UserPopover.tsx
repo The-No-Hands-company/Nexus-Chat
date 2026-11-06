@@ -13,10 +13,10 @@ import type { NxUser } from "../store";
 
 const PRESENCE_COLOR: Record<string, string> = {
   online:    "var(--nexus-color-state-success)",
-  idle:      "#facc15",
+  idle:      "var(--nexus-color-state-warning)",
   dnd:       "var(--nexus-color-state-danger)",
-  invisible: "#6b7280",
-  offline:   "#6b7280",
+  invisible: "var(--nexus-color-text-muted)",
+  offline:   "var(--nexus-color-text-muted)",
 };
 
 const PRESENCE_LABEL: Record<string, string> = {
@@ -85,7 +85,7 @@ export default function UserPopover({ userId, username, avatar, anchor, onClose 
 
   const isOwn = userId === session?.userId;
   const presence = (onlineUsers as Record<string, string>)[userId] ?? profile?.presence ?? "offline";
-  const presenceColor = PRESENCE_COLOR[presence] ?? "#6b7280";
+  const presenceColor = PRESENCE_COLOR[presence] ?? "var(--nexus-color-text-muted)";
 
   async function openDm() {
     if (isOwn) { onClose(); return; }
@@ -124,14 +124,14 @@ export default function UserPopover({ userId, username, avatar, anchor, onClose 
       {/* Banner */}
       <div style={{
         height: 52,
-        background: "linear-gradient(135deg, rgba(124,58,237,0.4), rgba(39,201,165,0.2))",
+        background: "linear-gradient(135deg, color-mix(in srgb, var(--nexus-color-accent-primary) 28%, transparent), color-mix(in srgb, var(--nexus-color-state-info) 14%, transparent))",
       }} />
 
       {/* Avatar (overlaps banner) */}
       <div style={{ position: "relative", paddingInline: 14, marginTop: -22 }}>
         <div style={{
           width: 52, height: 52, borderRadius: "50%",
-          background: "rgba(124,58,237,0.25)",
+          background: "color-mix(in srgb, var(--nexus-color-accent-primary) 18%, transparent)",
           border: "3px solid var(--bg-700)",
           display: "flex", alignItems: "center", justifyContent: "center",
           fontSize: 20, fontWeight: 800, color: "var(--accent-300)",

@@ -1,29 +1,9 @@
 /* Generated from tokens/nexus.tokens.json — do not edit.
    Change the JSON and run: bun run build */
+
 :root {
-  --nexus-color-bg-canvas: #090d0d;
-  --nexus-color-bg-surface: #0f1616;
-  --nexus-color-bg-elevated: #142020;
-  --nexus-color-text-primary: #e6f2ee;
-  --nexus-color-text-secondary: #9db4ad;
-  --nexus-color-text-muted: #7d948d;
-  --nexus-color-text-inverse: #0a0f0f;
-  --nexus-color-accent-primary: #27c9a5;
-  --nexus-color-accent-primaryHover: #1fb592;
-  --nexus-color-accent-primaryActive: #189f80;
-  --nexus-color-state-success: #2ac57d;
-  --nexus-color-state-warning: #e8b24a;
-  --nexus-color-state-danger: #e15d5d;
-  --nexus-color-state-info: #5ca8ff;
-  --nexus-color-border-subtle: rgba(230,242,238,0.12);
-  --nexus-color-border-strong: rgba(230,242,238,0.28);
-  --nexus-typography-fontFamily-base: Figtree, Segoe UI, sans-serif;
-  --nexus-typography-fontFamily-mono: IBM Plex Mono, ui-monospace, monospace;
-  --nexus-typography-size-xs: 12px;
-  --nexus-typography-size-sm: 14px;
-  --nexus-typography-size-md: 16px;
-  --nexus-typography-size-lg: 20px;
-  --nexus-typography-size-xl: 28px;
+  --nexus-typography-fontFamily-base: Satoshi, -apple-system, BlinkMacSystemFont, sans-serif;
+  --nexus-typography-fontFamily-mono: JetBrains Mono, ui-monospace, monospace;
   --nexus-typography-weight-regular: 400;
   --nexus-typography-weight-medium: 500;
   --nexus-typography-weight-semibold: 600;
@@ -31,16 +11,6 @@
   --nexus-typography-lineHeight-tight: 1.2;
   --nexus-typography-lineHeight-normal: 1.45;
   --nexus-typography-lineHeight-relaxed: 1.7;
-  --nexus-space-0: 0px;
-  --nexus-space-1: 4px;
-  --nexus-space-2: 8px;
-  --nexus-space-3: 12px;
-  --nexus-space-4: 16px;
-  --nexus-space-5: 20px;
-  --nexus-space-6: 24px;
-  --nexus-space-8: 32px;
-  --nexus-space-10: 40px;
-  --nexus-space-12: 48px;
   --nexus-radius-sm: 6px;
   --nexus-radius-md: 10px;
   --nexus-radius-lg: 14px;
@@ -58,4 +28,122 @@
   --nexus-zIndex-overlay: 100;
   --nexus-zIndex-modal: 200;
   --nexus-zIndex-toast: 300;
+}
+
+:root, [data-nexus-theme="void"] {
+  --nexus-color-bg-canvas: #030303;
+  --nexus-color-bg-surface: #0A0A0A;
+  --nexus-color-bg-elevated: #111111;
+  --nexus-color-bg-raised: #171717;
+  --nexus-color-text-primary: #FFFFFF;
+  --nexus-color-text-secondary: #A0A0A0;
+  --nexus-color-text-muted: #6E6E6E;
+  --nexus-color-text-inverse: #030303;
+  --nexus-color-accent-primary: #CCFF00;
+  --nexus-color-accent-hover: #B8E600;
+  --nexus-color-accent-active: #A3CC00;
+  --nexus-color-state-success: #2AC57D;
+  --nexus-color-state-warning: #E8B24A;
+  --nexus-color-state-danger: #E15D5D;
+  --nexus-color-state-info: #5CA8FF;
+  --nexus-color-border-subtle: rgba(255,255,255,0.36);
+  --nexus-color-border-strong: rgba(255,255,255,0.44);
+}
+
+[data-nexus-theme="abyss"] {
+  --nexus-color-bg-canvas: #04100E;
+  --nexus-color-bg-surface: #08201C;
+  --nexus-color-bg-elevated: #0C2B26;
+  --nexus-color-bg-raised: #113630;
+  --nexus-color-text-primary: #F0FBF8;
+  --nexus-color-text-secondary: #9DB8B1;
+  --nexus-color-text-muted: #6E8A83;
+  --nexus-color-text-inverse: #04100E;
+  --nexus-color-accent-primary: #D4FF3D;
+  --nexus-color-accent-hover: #C2F520;
+  --nexus-color-accent-active: #AEE000;
+  --nexus-color-state-success: #4ADE80;
+  --nexus-color-state-warning: #F0BE5A;
+  --nexus-color-state-danger: #F07171;
+  --nexus-color-state-info: #7DD3FC;
+  --nexus-color-border-subtle: rgba(140,255,225,0.40);
+  --nexus-color-border-strong: rgba(140,255,225,0.52);
+}
+
+[data-nexus-theme="petrol"] {
+  --nexus-color-bg-canvas: #07131A;
+  --nexus-color-bg-surface: #0C1F28;
+  --nexus-color-bg-elevated: #112B36;
+  --nexus-color-bg-raised: #163643;
+  --nexus-color-text-primary: #F2F8FA;
+  --nexus-color-text-secondary: #A0B4BD;
+  --nexus-color-text-muted: #71858F;
+  --nexus-color-text-inverse: #07131A;
+  --nexus-color-accent-primary: #CCFF00;
+  --nexus-color-accent-hover: #B8E600;
+  --nexus-color-accent-active: #A3CC00;
+  --nexus-color-state-success: #34D399;
+  --nexus-color-state-warning: #EBB454;
+  --nexus-color-state-danger: #EF6E6E;
+  --nexus-color-state-info: #60A5FA;
+  --nexus-color-border-subtle: rgba(150,220,255,0.46);
+  --nexus-color-border-strong: rgba(150,220,255,0.60);
+}
+
+[data-nexus-theme="slate"] {
+  --nexus-color-bg-canvas: #080D16;
+  --nexus-color-bg-surface: #0D1421;
+  --nexus-color-bg-elevated: #141D2E;
+  --nexus-color-bg-raised: #1A2539;
+  --nexus-color-text-primary: #F1F4FA;
+  --nexus-color-text-secondary: #A3AFC4;
+  --nexus-color-text-muted: #74809A;
+  --nexus-color-text-inverse: #080D16;
+  --nexus-color-accent-primary: #C2F000;
+  --nexus-color-accent-hover: #AFDA00;
+  --nexus-color-accent-active: #9BC300;
+  --nexus-color-state-success: #34D399;
+  --nexus-color-state-warning: #EBB454;
+  --nexus-color-state-danger: #EF6E6E;
+  --nexus-color-state-info: #60A5FA;
+  --nexus-color-border-subtle: rgba(160,190,255,0.49);
+  --nexus-color-border-strong: rgba(160,190,255,0.62);
+}
+
+:root, [data-nexus-density="balanced"] {
+  --nexus-space-1: 4px;
+  --nexus-space-2: 8px;
+  --nexus-space-3: 12px;
+  --nexus-space-4: 16px;
+  --nexus-space-5: 20px;
+  --nexus-space-6: 24px;
+  --nexus-space-7: 32px;
+  --nexus-space-8: 48px;
+  --nexus-typography-size-xs: 11px;
+  --nexus-typography-size-sm: 13px;
+  --nexus-typography-size-base: 14px;
+  --nexus-typography-size-lg: 16px;
+  --nexus-typography-size-xl: 20px;
+  --nexus-typography-size-2xl: 28px;
+  --nexus-control-height: 32px;
+  --nexus-widget-padding: 16px;
+}
+
+[data-nexus-density="compact"] {
+  --nexus-space-1: 2px;
+  --nexus-space-2: 4px;
+  --nexus-space-3: 8px;
+  --nexus-space-4: 12px;
+  --nexus-space-5: 16px;
+  --nexus-space-6: 20px;
+  --nexus-space-7: 24px;
+  --nexus-space-8: 32px;
+  --nexus-typography-size-xs: 10px;
+  --nexus-typography-size-sm: 12px;
+  --nexus-typography-size-base: 13px;
+  --nexus-typography-size-lg: 15px;
+  --nexus-typography-size-xl: 18px;
+  --nexus-typography-size-2xl: 24px;
+  --nexus-control-height: 26px;
+  --nexus-widget-padding: 12px;
 }

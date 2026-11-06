@@ -13,7 +13,7 @@
   --accent-300: var(--nexus-color-accent-primary);
   --accent-400: var(--nexus-color-accent-primary);
   --accent-500: var(--nexus-color-accent-primary);
-  --accent-600: var(--nexus-color-accent-primaryActive);
+  --accent-600: var(--nexus-color-accent-active);
 }
 
 @theme inline {

@@ -23,7 +23,7 @@ export default function VoiceBar({ voice }: Props) {
 
   const statusColor =
     status === "connected"  ? "var(--nexus-color-state-success)"
-    : status === "connecting" ? "#facc15"
+    : status === "connecting" ? "var(--nexus-color-state-warning)"
     : "var(--nexus-color-state-danger)";
 
   return (
@@ -31,8 +31,8 @@ export default function VoiceBar({ voice }: Props) {
       className="shrink-0 border-t"
       style={{
         background: "var(--bg-900)",
-        borderColor: "rgba(74,222,128,0.15)",
-        borderTopColor: statusColor + "40",
+        borderColor: "var(--nexus-color-border-subtle)",
+        borderTopColor: `color-mix(in srgb, ${statusColor} 25%, transparent)`,
       }}
     >
       {/* Status row */}

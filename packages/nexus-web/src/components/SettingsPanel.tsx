@@ -133,7 +133,7 @@ export default function SettingsPanel({ onClose }: { onClose: () => void }) {
 
   const gwColor =
     gatewayStatus === "online" ? "var(--nexus-color-state-success)"
-    : gatewayStatus === "connecting" ? "#facc15"
+    : gatewayStatus === "connecting" ? "var(--nexus-color-state-warning)"
     : "var(--nexus-color-state-danger)";
 
   const TABS: { id: Tab; label: string }[] = [
@@ -218,7 +218,7 @@ export default function SettingsPanel({ onClose }: { onClose: () => void }) {
                 <div className="flex items-center gap-4">
                   <div
                     className="w-16 h-16 rounded-full flex items-center justify-center text-2xl font-bold shrink-0"
-                    style={{ background: "rgba(124,58,237,0.2)", color: "var(--accent-400)" }}
+                    style={{ background: "color-mix(in srgb, var(--nexus-color-accent-primary) 16%, transparent)", color: "var(--accent-400)" }}
                   >
                     {(session?.displayName ?? session?.username ?? "?")[0].toUpperCase()}
                   </div>
@@ -422,7 +422,7 @@ export default function SettingsPanel({ onClose }: { onClose: () => void }) {
                             : "border-transparent hover:border-bg-500"
                         )}
                         style={{
-                          background: density === d ? "rgba(124,58,237,0.15)" : "var(--bg-600)",
+                          background: density === d ? "color-mix(in srgb, var(--nexus-color-accent-primary) 14%, transparent)" : "var(--bg-600)",
                           color: density === d ? "var(--accent-300)" : "var(--muted)",
                           borderColor: density === d ? "var(--accent-500)" : "transparent",
                         }}
