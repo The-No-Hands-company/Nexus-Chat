@@ -3,7 +3,7 @@
 
 :root {
   --nexus-typography-fontFamily-base: Figtree, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif;
-  --nexus-typography-fontFamily-mono: Fira Code, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --nexus-typography-fontFamily-mono: JetBrains Mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   --nexus-typography-weight-regular: 400;
   --nexus-typography-weight-medium: 500;
   --nexus-typography-weight-semibold: 600;
